@@ -1,0 +1,28 @@
+termcolor
+numpy==1.19.1
+tqdm
+docutils==0.16
+recommonmark==0.6.0
+sphinx_rtd_theme
+mock
+matplotlib
+termcolor
+yacs
+tabulate
+cloudpickle
+Pillow==7.2.0
+future
+requests
+six
+torch==1.6.0
+torchvision==0.7.0
+ipywidgets==7.5.1
+opencv-python
+voila
+git+git://github.com/sphinx-doc/sphinx.git@7acd3ada3f38076af7b2b5c9f3b60bb9c2587a3d
+git+git://github.com/facebookresearch/fvcore.git
+
+# Detectron
+--find-links https://dl.fbaipublicfiles.com/detectron2/wheels/cpu/torch1.6/index.html
+detectron2
+
