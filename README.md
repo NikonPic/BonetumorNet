@@ -5,7 +5,7 @@
 
 A Multitask Deep Learning Model for Simultaneous Detection, Segmentation and Classification of Bone Tumors on Radiographs
 
- <img src="results\segmentation.PNG" alt="Drawing" style="width: 500px;">
+ <img src="results\demo.gif" alt="Drawing" style="width: 500px;">
 
 
 ## Setup
@@ -28,7 +28,7 @@ A Multitask Deep Learning Model for Simultaneous Detection, Segmentation and Cla
     │   ├── utils_tumor.py               # Utilities for preparing the dataset for training
     │   └── intrareader_reliability.py   # Evaluation of multiple readers on the segmentation performance
     ├── datainfo.csv                     # Contains the labels and filenames
-    ├── main.py                          # The main runner script to train and evaluate the model.
+    ├── main_notebook.ipynb              # The main runner script to train and evaluate the model.
     └── requirements.txt                 # Dependencies
 
 # Citation
