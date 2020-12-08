@@ -25,8 +25,8 @@ wf_title = [
 ]
 benmal_title = ["Benign", "Malignant", "Cannot be classified"]
 
-name_d = ['Alex', 'Claudio']
-sel_id = 1
+name_d = ['1', '2']
+sel_id = 0
 
 
 def extract_local_info(loc_file, f_eval_doc):
