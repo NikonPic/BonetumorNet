@@ -1,14 +1,11 @@
 # %%
+import os
 import pandas as pd
 import detectron2
 from categories import make_categories_advanced, make_categories, cat_mapping_new, cat_naming_new, reverse_cat_list, malign_int, benign_int
 from sklearn.metrics import confusion_matrix
 from utils_detectron import plot_confusion_matrix
-import os
-import nrrd
 import numpy as np
-from PIL import Image
-from tqdm import tqdm
 
 
 f_eval_doc = './evalDoctors'

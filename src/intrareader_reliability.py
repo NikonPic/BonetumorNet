@@ -4,6 +4,7 @@ import nrrd
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
+from src.detec_helper import compare_masks, get_bb_from_mask
 
 
 p1 = 'SEG'
@@ -34,19 +35,6 @@ def get_nrrd_mask(filename, img_path, nrrd_path, fac=15, nrrd_key='Segmentation_
 
     return np.array(mask)[:, :, 0]
 
-def compare_masks(mask1, mask2):
-    """calculate iou and dice score with mask1 and mask2"""
-    overlap = mask1*mask2 # Logical AND
-    intersection = np.sum(overlap)
-    union = mask1 + mask2 # Logical OR
-
-    iou = overlap.sum()/float(union.sum() - overlap.sum()) # Treats "True" as 1,
-                                       # sums number of Trues
-                                       # in overlap and union
-                                       # and divides
-    dice = np.mean((2. * intersection)/float(union.sum()))
-    return iou, dice
-
 def make_bool(x):
     if x > 0:
         return True
@@ -56,32 +44,6 @@ def make_1(x):
     if x:
         return 1
     return 0
-
-
-def get_bb_from_mask(mask):
-    mask_bb = mask.copy()
-    sh = mask.shape
-    min_y = sh[0]
-    max_y = 0
-
-    min_x = sh[1]
-    max_x = 0
-
-    for row in range(sh[0]):
-        if True in mask[row, :]:
-            max_y = row
-            if row < min_y:
-                min_y = row
-
-    for column in range(sh[1]):
-        if True in mask[:, column]:
-            max_x = column
-            if column < min_x:
-                min_x = column
-    
-    mask_bb[min_y:max_y+1, min_x:max_x+1] = True
-    
-    return vfunc1(mask_bb)
 
 vfunc = np.vectorize(make_bool)
 vfunc1 = np.vectorize(make_1)
@@ -107,8 +69,8 @@ for seg in tqdm(comp2_seg):
     mask1 = get_nrrd_mask(seg, im_p, p1)
     mask2 = get_nrrd_mask(seg, im_p, p2)
 
-    mask1_bb = get_bb_from_mask(mask1)
-    mask2_bb = get_bb_from_mask(mask2)
+    mask1_bb = vfunc1(get_bb_from_mask(mask1))
+    mask2_bb = vfunc1(get_bb_from_mask(mask2))
 
     mask1 = vfunc1(mask1)
     mask2 = vfunc1(mask2)

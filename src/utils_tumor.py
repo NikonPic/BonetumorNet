@@ -2,44 +2,36 @@
 # %%
 # general
 import os
-import pandas as pd
-import numpy as np
 import json
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 from datetime import datetime
 from datetime import date
-import nrrd
 from itertools import groupby
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+import nrrd
 
 # deep learning
 # The complete Fastai vision library
-from fastai.vision import ImageList, get_transforms, imagenet_stats, ResizeMethod, cnn_learner, models, ClassificationInterpretation, ImageBBox, open_image, itertools, DatasetType
-
+from fastai.vision import ImageBBox, open_image, itertools
 
 # metrics
 from sklearn.metrics import accuracy_score, auc
-from fastai.metrics import error_rate, accuracy, roc_curve, AUROC
+from fastai.metrics import roc_curve
 
 # open images
 from PIL import Image
 
 # generate polygons:
-from imantics import Polygons, Mask
-
-# add the pyradiomics analysis
-import radiomics
-from radiomics import featureextractor
+from imantics import Mask
 
 # Pillow repair?
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # personal
-if os.getcwd().__contains__('src'):
-    from categories import make_categories, make_categories_advanced, cat_mapping_new, reverse_cat_list, malign_int, benign_int
-else:
-    from .categories import make_categories, make_categories_advanced, cat_mapping_new, reverse_cat_list, malign_int, benign_int
+from categories import make_categories_advanced, cat_mapping_new, reverse_cat_list, malign_int
 
 # %% Create Databunch functionality
 
@@ -54,11 +46,11 @@ CLASS_KEY = 'Aggressiv/Nicht-aggressiv'
 ENTITY_KEY = 'Tumor.Entitaet'
 
 
-def get_advanced_dis_df(df, mode=False):
+def get_advanced_dis_data_fr(data_fr, mode=False):
     """
     redefine the dataframe distribution for advanced training -> separate by entities!
     """
-    # 1. get number of entities in overall_df
+    # 1. get number of entities in overall_data_fr
     # 2. split entities according to train, val / test-split
 
     # init the empyt idx lists
@@ -70,9 +62,9 @@ def get_advanced_dis_df(df, mode=False):
     cats = reverse_cat_list
 
     for cat in cats:
-        # get all matching df entries
-        df_loc = df.loc[df[ENTITY_KEY] == cat]
-        loclen = len(df_loc)
+        # get all matching data_fr entries
+        data_fr_loc = data_fr.loc[data_fr[ENTITY_KEY] == cat]
+        loclen = len(data_fr_loc)
 
         # now split acc to the indices
         validlen = round(loclen * VALID_PART)
@@ -80,14 +72,14 @@ def get_advanced_dis_df(df, mode=False):
         trainlen = loclen - validlen - testlen
 
         # get the matching indices and extend the idx list
-        df_loc_train = df_loc.iloc[:trainlen]
-        train_idx.extend(list(df_loc_train.index))
+        data_fr_loc_train = data_fr_loc.iloc[:trainlen]
+        train_idx.extend(list(data_fr_loc_train.index))
 
-        df_loc_valid = df_loc.iloc[trainlen:trainlen+validlen]
-        valid_idx.extend(list(df_loc_valid.index))
+        data_fr_loc_valid = data_fr_loc.iloc[trainlen:trainlen+validlen]
+        valid_idx.extend(list(data_fr_loc_valid.index))
 
-        df_loc_test = df_loc.iloc[trainlen+validlen::]
-        test_idx.extend(list(df_loc_test.index))
+        data_fr_loc_test = data_fr_loc.iloc[trainlen+validlen::]
+        test_idx.extend(list(data_fr_loc_test.index))
 
     # summarize in dictionary
     dis = {
@@ -108,8 +100,8 @@ def get_advanced_dis_df(df, mode=False):
     if mode:
         dis = {
             'test_external': {
-                'len': len(df),
-                'idx': list(range(len(df))),
+                'len': len(data_fr),
+                'idx': list(range(len(data_fr))),
             }
         }
 
@@ -135,51 +127,51 @@ def apply_cat(train, valid, test, dis, new_name, new_cat):
     return train, valid, test
 
 
-def get_df_dis(df, born_key='OrTBoard_Patient.GBDAT', diag_key='Erstdiagnosedatum',
+def get_data_fr_dis(data_fr, born_key='OrTBoard_Patient.GBDAT', diag_key='Erstdiagnosedatum',
                t_key='Tumor.Entitaet', pos_key='Befundlokalisation', out=True,
                mode=False):
     """
-    extract ages and other information from df
+    extract ages and other information from data_fr
     """
 
     # get ages
     if mode:
-        ages = df['Alter bei Erstdiagnose']
+        ages = data_fr['Alter bei Erstdiagnose']
     else:
         ages = [calculate_age(born, diag) for (born, diag) in zip(
-            df[born_key], df[diag_key])]
+            data_fr[born_key], data_fr[diag_key])]
 
     # get labels
-    labels = [float(lab) for lab in df[CLASS_KEY]]
+    labels = [float(lab) for lab in data_fr[CLASS_KEY]]
 
     # get male(0) / female(1)
     if mode:
-        fm = [1 if d_loc == 'f' else 0 for d_loc in df['Geschlecht']]
+        female_male = [1 if d_loc == 'f' else 0 for d_loc in data_fr['Geschlecht']]
     else:
-        fm = [int(name[0] == 'F') for name in df[F_KEY]]
+        female_male = [int(name[0] == 'F') for name in data_fr[F_KEY]]
 
     # tumor_kind
-    tumor_kind = df[t_key]
+    tumor_kind = data_fr[t_key]
 
     # position
-    position = df[pos_key]
+    position = data_fr[pos_key]
 
     # get the shuffled indexes
-    dis = get_advanced_dis_df(df, mode=mode)
+    dis = get_advanced_dis_data_fr(data_fr, mode=mode)
 
     if out:
         for key in dis.keys():
             print(f"{key}:")
-            print_info(ages, labels, fm, dis[key]['idx'], tumor_kind, position)
+            print_info(ages, labels, female_male, dis[key]['idx'], tumor_kind, position)
 
         print("All:")
-        print_info(ages, labels, fm, list(
+        print_info(ages, labels, female_male, list(
             range(len(ages))), tumor_kind, position)
 
     return ages
 
 
-def print_info(ages, labels, fm, active_idx, tumor_kind, position, nums=1):
+def print_info(ages, labels, female_male, active_idx, tumor_kind, position, nums=1):
     """
     summarize all informations as a print message
     """
@@ -189,7 +181,7 @@ def print_info(ages, labels, fm, active_idx, tumor_kind, position, nums=1):
                         for i in active_idx]).std().round(nums)
     print(f'Age: {age} ± {age_std}')
 
-    females = np.array([fm[i] for i in active_idx]).sum()
+    females = np.array([female_male[i] for i in active_idx]).sum()
     femals_p = round((100*females) / len(active_idx), nums)
     print(f'Female: {females} ({femals_p}%)')
 
@@ -237,7 +229,7 @@ def get_acc(interp):
     return accuracy_score(interp.y_true, interp.pred_class)
 
 
-def plot_roc_curve(interp, indx=1, lw=2, off=0.02):
+def plot_roc_curve(interp, indx=1, line_w=2, off=0.02):
     """
     draw the roc curve
     """
@@ -247,7 +239,7 @@ def plot_roc_curve(interp, indx=1, lw=2, off=0.02):
     plt.plot(x, y, color='darkorange',
              label='ROC curve (area = %0.2f)' % auc_v)
     plt.grid(0.25)
-    plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+    plt.plot([0, 1], [0, 1], color='navy', lw=line_w, linestyle='--')
     plt.xlim([0.0-off, 1.0])
     plt.ylim([0.0, 1.0 + off])
     plt.xlabel('False Positive Rate')
@@ -263,18 +255,18 @@ def add_bb_2_csv(csv_path, seg_path, pic_path, crop_path, fac=1, crop=True, mode
     """
     # open csv
     if mode:
-        df = pd.read_excel(csv_path)
+        data_fr = pd.read_excel(csv_path)
     else:
-        df = pd.read_csv(csv_path, header='infer', delimiter=';')
+        data_fr = pd.read_csv(csv_path, header='infer', delimiter=';')
 
-    len_df = len(df)
+    len_data_fr = len(data_fr)
 
     # predefine arrays
-    top, left, bottom, right = np.empty([len_df]), np.empty(
-        [len_df]), np.empty([len_df]), np.empty([len_df])
+    top, left, bottom, right = np.empty([len_data_fr]), np.empty(
+        [len_data_fr]), np.empty([len_data_fr]), np.empty([len_data_fr])
 
     # iterate trough the files:
-    for i, (file, label) in tqdm(enumerate(zip(df[F_KEY], df[CLASS_KEY]))):
+    for i, (file, label) in tqdm(enumerate(zip(data_fr[F_KEY], data_fr[CLASS_KEY]))):
 
         # paths:
         imfile = os.path.join(pic_path, f'{file}.png')
@@ -285,22 +277,22 @@ def add_bb_2_csv(csv_path, seg_path, pic_path, crop_path, fac=1, crop=True, mode
             # get the bounding box
             top[i], left[i], bottom[i], right[i] = nrrd_2_bbox(
                 segfile, imfile, fac, title=str(label))
-        except:
+        except FileNotFoundError:
             print(segfile)
 
     # add the bounding boxes to the dataframe
-    df['top'] = top
-    df['left'] = left
-    df['bottom'] = bottom
-    df['right'] = right
+    data_fr['top'] = top
+    data_fr['left'] = left
+    data_fr['bottom'] = bottom
+    data_fr['right'] = right
 
     # save to csv!
     if mode:
-        df.to_excel(csv_path)
+        data_fr.to_excel(csv_path)
     else:
-        df.to_csv(csv_path, sep=';', index=False)
+        data_fr.to_csv(csv_path, sep=';', index=False)
 
-    return df
+    return data_fr
 
 
 def add_classes_to_csv(csv_path, mode=False):
@@ -309,18 +301,18 @@ def add_classes_to_csv(csv_path, mode=False):
     """
     # open csv
     if mode:
-        df = pd.read_excel(csv_path)
+        data_fr = pd.read_excel(csv_path)
     else:
-        df = pd.read_csv(csv_path, header='infer', delimiter=';')
+        data_fr = pd.read_csv(csv_path, header='infer', delimiter=';')
 
-    len_df = len(df)
+    len_data_fr = len(data_fr)
 
     # predefine arrays
-    agg_non_agg, ben_loc_mal, clinicla_flow, clinicla_flow_red, super_ent = np.empty([len_df]), np.empty(
-        [len_df]), np.empty([len_df]), np.empty([len_df]), np.empty([len_df])
+    agg_non_agg, ben_loc_mal, clinicla_flow, clinicla_flow_red, super_ent = np.empty([len_data_fr]), np.empty(
+        [len_data_fr]), np.empty([len_data_fr]), np.empty([len_data_fr]), np.empty([len_data_fr])
 
     # iterate trough the files:
-    for i, label in tqdm(enumerate(df[ENTITY_KEY])):
+    for i, label in tqdm(enumerate(data_fr[ENTITY_KEY])):
         agg_non_agg[i] = cat_mapping_new[label][1]
         ben_loc_mal[i] = cat_mapping_new[label][2]
         clinicla_flow[i] = cat_mapping_new[label][3]
@@ -328,26 +320,26 @@ def add_classes_to_csv(csv_path, mode=False):
         super_ent[i] = cat_mapping_new[label][6]
     
     benmal_info = [] 
-    for loc_ent in df[ENTITY_KEY]:
+    for loc_ent in data_fr[ENTITY_KEY]:
         ent_int = cat_mapping_new[loc_ent][0]
         benmal = 1 if ent_int in malign_int else 0
         benmal_info.append(benmal)
 
     # add the bounding boxes to the dataframe
-    df[CLASS_KEY] = benmal_info  
-    df['Aggressive - Non Aggressive'] = agg_non_agg
-    df['Benigne - Local Aggressive - Maligne'] = ben_loc_mal
-    df['Grade of clinical workflow'] = clinicla_flow
-    df['Grade for clinical workflow (2 + 3 = 2 > assessment in MSK center needed)'] = clinicla_flow_red
-    df['Super Entity (chon: 0, osteo:1, meta:2, other:3)'] = super_ent
+    data_fr[CLASS_KEY] = benmal_info  
+    data_fr['Aggressive - Non Aggressive'] = agg_non_agg
+    data_fr['Benigne - Local Aggressive - Maligne'] = ben_loc_mal
+    data_fr['Grade of clinical workflow'] = clinicla_flow
+    data_fr['Grade for clinical workflow (2 + 3 = 2 > assessment in MSK center needed)'] = clinicla_flow_red
+    data_fr['Super Entity (chon: 0, osteo:1, meta:2, other:3)'] = super_ent
 
     # save to csv!
     if mode:
-        df.to_excel(csv_path)
+        data_fr.to_excel(csv_path)
     else:
-        df.to_csv(csv_path, sep=';', index=False)
+        data_fr.to_csv(csv_path, sep=';', index=False)
 
-    return df
+    return data_fr
 
 
 def nrrd_2_bbox(nrrd_path, im_path, fac,
@@ -423,12 +415,12 @@ def format_seg_names(name):
     return name
 
 
-def generate_masks(df, nrrd_path, pic_path, mask_path, gen_rad=True):
+def generate_masks(data_fr, nrrd_path, pic_path, mask_path, gen_rad=True):
     """
     save all pictures in a masked version in the mask_folder
     """
 
-    for file in tqdm(df[F_KEY]):
+    for file in tqdm(data_fr[F_KEY]):
         # get names
         pic_name = os.path.join(pic_path, f'{file}.png')
         file = format_seg_names(file)
@@ -447,7 +439,8 @@ def generate_masks(df, nrrd_path, pic_path, mask_path, gen_rad=True):
                 sh = mask.shape
                 mask = mask.reshape((sh[2], sh[1], sh[0]))
                 nrrd.write(f'../radiomics/label/{file}.nrrd', mask)
-        except:
+
+        except FileNotFoundError:
             print(nrrd_name)
 
 # %% coco-formatting
@@ -480,12 +473,12 @@ def make_empty_coco(mode='train', simple=True):
     return coco, cat_mapping
 
 
-def get_cocos_from_df(df, paths, save=True, seg=True, simple=True, newmode=0, ex_mode=False):
+def get_cocos_from_data_fr(data_fr, paths, save=True, seg=True, simple=True, newmode=0, ex_mode=False):
     """
     build the coco dictionaries from the dataframe
     """
     # get the shuffled indexes
-    dis = get_advanced_dis_df(df, mode=ex_mode)
+    dis = get_advanced_dis_data_fr(data_fr, mode=ex_mode)
 
     # the list of coco dictionaries
     cocos = []
@@ -495,7 +488,7 @@ def get_cocos_from_df(df, paths, save=True, seg=True, simple=True, newmode=0, ex
         indices = dis[mode]['idx']
 
         # make empty coco_dict
-        cocos.append(make_coco(df, mode, indices, seg=seg, newmode=newmode,
+        cocos.append(make_coco(data_fr, mode, indices, seg=seg, newmode=newmode,
                                simple=simple, path=paths["pic"], path_nrd=paths["seg"]))
 
         if save:
@@ -510,7 +503,7 @@ def get_cocos_from_df(df, paths, save=True, seg=True, simple=True, newmode=0, ex
     return cocos
 
 
-def make_coco(df, mode, idxs, seg=False, path='../PNG2', path_nrd='../SEG', simple=True, newmode=0):
+def make_coco(data_fr, mode, idxs, seg=False, path='../PNG2', path_nrd='../SEG', simple=True, newmode=0):
     # create the empty coco format
     coco, cat_mapping = make_empty_coco(mode, simple=simple)
 
@@ -518,10 +511,10 @@ def make_coco(df, mode, idxs, seg=False, path='../PNG2', path_nrd='../SEG', simp
     for idx in idxs:
 
         # get the current object
-        o = df.iloc[idx]
+        obj = data_fr.iloc[idx]
 
         # get the filename
-        file = o[F_KEY]
+        file = obj[F_KEY]
         filename = file + '.png'
 
         # get height and width by loading the picture
@@ -533,18 +526,18 @@ def make_coco(df, mode, idxs, seg=False, path='../PNG2', path_nrd='../SEG', simp
         id_tumor = int(idx)
 
         # get the bounding box
-        bbox = tlbr2bbox(o['top'], o['left'], o['bottom'], o['right'])
+        bbox = tlbr2bbox(obj['top'], obj['left'], obj['bottom'], obj['right'])
 
         # create the simple poly:
         poly = [
-            (o['left'], o['top']), (o['right'], o['top']),
-            (o['right'], o['bottom']), (o['left'], o['bottom']),
+            (obj['left'], obj['top']), (obj['right'], obj['top']),
+            (obj['right'], obj['bottom']), (obj['left'], obj['bottom']),
         ]
         poly = list(itertools.chain.from_iterable(poly))
         poly = [int(p) for p in poly]
 
         # get the class:
-        name = o[CLASS_KEY] if simple else o[ENTITY_KEY]
+        name = obj[CLASS_KEY] if simple else o[ENTITY_KEY]
 
         cat = cat_mapping[name]
 
@@ -603,23 +596,23 @@ def check_seg(segl):
     return checked
 
 
-def tlbr2bbox(top, left, bottom, right, op=int):
+def tlbr2bbox(top, left, bottom, right, oper=int):
     """
     tlbr = [top, left, bottom, right]
     to ->
     bbox = [x(left), y(top), width, height]
     """
-    x = op(left)
-    y = op(top)
-    width = op(right - left)
-    height = op(bottom - top)
+    x = oper(left)
+    y = oper(top)
+    width = oper(right - left)
+    height = oper(bottom - top)
 
     return [x, y, width, height]
 
 
 def binary_mask_to_rle(binary_mask):
     """
-    from: https://stackoverflow.com/questions/49494337/encode-numpy-array-using-uncompressed-rle-for-coco-dataset
+    https://stackoverflow.com/questions/49494337/encode-numpy-array-using-uncompressed-rle-for-coco-dataset
     """
     rle = {'counts': [], 'size': list(binary_mask.shape)}
     counts = rle.get('counts')
@@ -630,7 +623,7 @@ def binary_mask_to_rle(binary_mask):
     return rle
 
 
-def get_df_paths(mode=False):
+def get_data_fr_paths(mode=False):
     """
     collect dataframe and all relevant paths:
     """
@@ -662,27 +655,27 @@ def get_df_paths(mode=False):
         "nrrd": os.path.join(path, f'{add}/radiomics/image')
     }
 
-    # get df
+    # get data_fr
     if mode:
-        df = pd.read_excel(paths["csv"])
+        data_fr = pd.read_excel(paths["csv"])
     else:
-        df = pd.read_csv(paths["csv"], header='infer', delimiter=';')
+        data_fr = pd.read_csv(paths["csv"], header='infer', delimiter=';')
 
-    return df, paths
+    return data_fr, paths
 
 
 def regenerate_ex_names(paths, new_path='../PNG_external'):
     """"""
     # append idlist
-    df = pd.read_excel(paths["csv"])
-    idlist = np.array(list(range(1, len(df)+1)))
+    data_fr = pd.read_excel(paths["csv"])
+    idlist = np.array(list(range(1, len(data_fr)+1)))
     np.random.shuffle(idlist)
-    df['id'] = idlist
-    df.to_excel(paths["csv"])
+    data_fr['id'] = idlist
+    data_fr.to_excel(paths["csv"])
 
-    df = pd.read_excel(paths["csv"])
+    data_fr = pd.read_excel(paths["csv"])
     old_path = paths['pic']
-    for id, fname in zip(df['id'], df[F_KEY]):
+    for id, fname in zip(data_fr['id'], data_fr[F_KEY]):
         filename = f'{old_path}/{fname}.png'
         img = Image.open(filename)
         filename_new = f'{new_path}/{id}.png'
@@ -695,11 +688,11 @@ if __name__ == '__main__':
 
     for external_mode in [False, True]:
         # get the paths
-        df, paths = get_df_paths(mode=external_mode)
+        data_fr, paths = get_data_fr_paths(mode=external_mode)
 
         # %% show the distributions
         print('\n\nDataset information:\n')
-        ages = get_df_dis(df, mode=external_mode)
+        ages = get_data_fr_dis(data_fr, mode=external_mode)
 
         # %% generate the cropped pictures in the crop folder
         print('\n\nAdd the bounding box to the csv:')
@@ -712,7 +705,7 @@ if __name__ == '__main__':
 
         # %% build the coco-formated json
         print('\n\nTransform to coco format')
-        cocos = get_cocos_from_df(df, paths, save=True,
+        cocos = get_cocos_from_data_fr(data_fr, paths, save=True,
                                   seg=True, simple=simple, newmode=0, ex_mode=external_mode)
 
 

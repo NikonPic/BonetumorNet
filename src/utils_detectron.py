@@ -1,15 +1,15 @@
 # %%
 # define some useful functionalities for detectron2
-from pycocotools.coco import COCO
+from categories import cat_mapping_new, malign_int, benign_int
 from tqdm.notebook import tqdm
 import json
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib.pyplot as plt
+import itertools
 import os
 import torch
-import torch.nn as nn
 import copy
 import math
 import random
@@ -17,17 +17,18 @@ from PIL import Image
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 from torchvision.transforms import functional as F
 from radiomics import featureextractor
+from pycocotools.coco import COCO
 
 # detectron core specific
 from fvcore.common.file_io import PathManager
-from fvcore.transforms.transform import NoOpTransform, Transform
+from fvcore.transforms.transform import Transform
 # detectron specific
 from detectron2.data import build_detection_train_loader
 from detectron2.data import transforms as T
 from detectron2.data import detection_utils as utils
 from detectron2.engine import DefaultTrainer
 from detectron2.evaluation.evaluator import DatasetEvaluator
-from detectron2.evaluation import COCOEvaluator, inference_on_dataset, SemSegEvaluator
+from detectron2.evaluation import COCOEvaluator, SemSegEvaluator
 import logging
 
 import detectron2
@@ -37,13 +38,12 @@ else:
     from detectron2.data.transforms.transform_gen import TransformGen
 
 # personal functionality
-from utils_tumor import get_advanced_dis_df, make_categories, make_categories_advanced, CLASS_KEY, ENTITY_KEY, F_KEY
-from detectron2.evaluation import DatasetEvaluator
-from categories import cat_mapping_new, malign_int, benign_int
+from utils_tumor import get_advanced_dis_data_fr, make_categories, make_categories_advanced, CLASS_KEY, ENTITY_KEY, F_KEY
+
 
 class MyEvaluator(DatasetEvaluator):
 
-    def __init__(self, dataset_name, cfg, distributed, output_dir=None, *, use_fast_impl=True):
+    def __init__(self, cfg, distributed, output_dir=None, *, use_fast_impl=True):
         self._tasks = self._tasks_from_config(cfg)
         self._distributed = distributed
         self._output_dir = output_dir
@@ -59,38 +59,6 @@ class MyEvaluator(DatasetEvaluator):
         Should be called before starting a round of evaluation.
         """
         self._predicitions = []
-
-    def process(self, inputs, outputs):
-        """
-        Process the pair of inputs and outputs.
-        If they contain batches, the pairs can be consumed one-by-one using `zip`:
-
-        .. code-block:: python
-
-            for input_, output in zip(inputs, outputs):
-                # do evaluation on single input/output pair
-                ...
-
-        Args:
-            inputs (list): the inputs that's used to call the model.
-            outputs (list): the return value of `model(inputs)`
-        """
-        pass
-
-    def evaluate(self):
-        """
-        Evaluate/summarize the performance, after processing all input/output pairs.
-
-        Returns:
-            dict:
-                A new evaluator class can return a dict of arbitrary format
-                as long as the user can process the results.
-                In our train_net.py, we expect the following format:
-
-                * key: the name of the task (e.g., bbox)
-                * value: a dict of {metric name: score}, e.g.: {"AP50": 80}
-        """
-        pass
 
 
 class CocoTrainer(DefaultTrainer):
@@ -376,9 +344,7 @@ def plot_confusion_matrix(
     http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html
 
     """
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import itertools
+    
 
     accuracy = np.trace(cm) / float(np.sum(cm))
     misclass = 1 - accuracy
@@ -703,7 +669,7 @@ def eval_iou_dice(predictor, df, proposed=1, mode="test"):
         # mask
         try:
             true_mask = coco.annToMask(truth)
-        except:
+        except FileNotFoundError:
             true_mask = pred_mask * 0
 
         # RESULT
@@ -762,17 +728,9 @@ def personal_score_simple(predictor, df, active_idx, simple=False, imgpath="./PN
 
     F_KEY = 'FileName (png)'
     CLASS_KEY = 'Aggressiv/Nicht-aggressiv'
-    ENTITY_KEY = 'Tumor.Entitaet'
-    # get the dataset distribution
 
     # get the actibe files
     files = [os.path.join(imgpath, f"{f}.png") for f in df[F_KEY]]
-
-    # apply the category mapping dep. on simple-mode
-    if advanced:
-        _, cat_mapping = make_categories_advanced(simple)
-    else:
-        _, cat_mapping = make_categories(simple)
 
     # counters during evaluation
     count = 0
@@ -794,7 +752,6 @@ def personal_score_simple(predictor, df, active_idx, simple=False, imgpath="./PN
 
         # select the relevant name from the df
         malignant = df[CLASS_KEY][idx]
-        entity = df[ENTITY_KEY][idx]
 
         if malignant and pred <= 4:
             count += 1
@@ -805,93 +762,3 @@ def personal_score_simple(predictor, df, active_idx, simple=False, imgpath="./PN
     res = count / len(active_idx)
 
     return res
-
-
-def radiomics_extract_from_seg(df, mode, idxs, path='./radiomics/image', path_nrd='./radio_after_seg/label'):
-    """contains the radiomics feature extraction"""
-
-    set_path = '../radiomics/pyradiomics_settings.yaml'
-    extractor = featureextractor.RadiomicsFeatureExtractor(set_path)
-    df_list = []
-    except_dict = {
-        'idx': [],
-    }
-
-    for idx in tqdm(idxs):
-        # get current filename
-        o = df.iloc[idx]
-        file = o[F_KEY]
-
-        # get the two relevant paths for image and segmentation
-        picpath = f'{path}/{file}.nrrd'
-        nrrdpath = f'{path_nrd}/{file}.nrrd'
-
-        print(picpath)
-        print(nrrdpath)
-
-        pngfile = f'./PNG2/{file}.png'
-        im = cv2.imread(pngfile)
-
-        with torch.no_grad():
-            outputs = predictor(im)
-            out = outputs["instances"].to("cpu")
-            np_arr_out = np.array(out[:1].pred_masks, dtype='int')
-
-        sh = np_arr_out.shape
-        np_arr_out = np_arr_out.reshape(sh[2], sh[1], sh[0])
-        np_arr_out = np_arr_out[:, :, 0]
-        np_arr_out = np.array([np_arr_out, np_arr_out, np_arr_out])
-
-        # write as nrrd label mask
-        nrrd.write(nrrdpath, np_arr_out)
-
-        # obtain result
-        result = extractor.execute(picpath, nrrdpath)
-
-        # compress
-        df_loc = result2compresdf(result)
-        # append the label
-        df_loc['label1'] = o[CLASS_KEY]
-        df_loc['label2'] = o[ENTITY_KEY]
-
-        df_list.append(df_loc.copy())
-
-    df_rad = df_list[0]
-    df_except = pd.DataFrame.from_dict(except_dict, orient='index')
-
-    for i, df_loc in enumerate(df_list):
-        if i > 0:
-            df_rad = df_rad.append(df_loc)
-
-    # finnaly save result
-    df_rad.to_csv(f'./radio_after_seg/{mode}.csv')
-    df_except.to_csv(f'./radio_after_seg/{mode}-except.csv')
-
-
-def result2compresdf(result: dict):
-    """compress the result to maintain the relevant features only"""
-    comp_res = {}
-
-    for key in result.keys():
-        val = result[key]
-
-        if type(val) in [np.ndarray]:
-            comp_res[key] = float(val)
-
-    df = pd.DataFrame.from_dict(comp_res, orient='index')
-
-    return df.T
-
-
-def get_radiomics_from_df(df):
-    """perform radiomics analysis for all modes"""
-    # get the shuffled indexes
-    dis = get_advanced_dis_df(df)
-
-    for mode in ['test', 'train', 'valid']:
-
-        # get the active indices
-        indices = dis[mode]['idx']
-
-        # make empty coco_dict
-        radiomics_extract_from_seg(df, mode, indices)

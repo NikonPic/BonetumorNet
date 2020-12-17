@@ -1,10 +1,5 @@
 # %%
-import ipywidgets as widgets
-from PIL import Image, ImageOps
-import pandas as pd
-
-import radiomics
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import sys
 import nrrd
 import cv2
@@ -12,7 +7,6 @@ from sklearn.metrics import confusion_matrix
 from tqdm.notebook import tqdm
 from matplotlib.pyplot import imshow
 import matplotlib.pyplot as plt
-from PIL import Image
 from detectron2.utils.visualizer import ColorMode
 
 from detectron2.data import build_detection_test_loader
