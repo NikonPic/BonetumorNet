@@ -38,7 +38,7 @@ else:
     from detectron2.data.transforms.transform_gen import TransformGen
 
 # personal functionality
-from utils_tumor import get_advanced_dis_data_fr, make_categories, make_categories_advanced, CLASS_KEY, ENTITY_KEY, F_KEY
+from utils_tumor import get_advanced_dis_data_fr, make_categories, make_cat_advanced, CLASS_KEY, ENTITY_KEY, F_KEY
 
 
 class MyEvaluator(DatasetEvaluator):
@@ -194,7 +194,7 @@ def softmax(x):
 
 def get_active_idx(df, mode, external=False):
     """Get the currently active indexes depending on the dataset mode(=test)"""
-    dis = get_advanced_dis_df(df, mode=external)
+    dis = get_advanced_dis_data_fr(df, mode=external)
     # get the indices of the dataset
     if mode == "test":
         active_idx = dis["test"]["idx"]

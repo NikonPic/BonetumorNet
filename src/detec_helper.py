@@ -1,43 +1,39 @@
 # %%
-from PIL import Image, ImageDraw, ImageFont, ImageOps
-import sys
-import nrrd
-import cv2
-from sklearn.metrics import confusion_matrix
-from tqdm.notebook import tqdm
-from matplotlib.pyplot import imshow
-import matplotlib.pyplot as plt
-from detectron2.utils.visualizer import ColorMode
-
-from detectron2.data import build_detection_test_loader
-from detectron2.data.datasets import register_coco_instances
-from detectron2.data import MetadataCatalog
-from detectron2.utils.visualizer import Visualizer
-from detectron2.config import get_cfg
-from detectron2.engine import DefaultPredictor
-from detectron2 import model_zoo
-import torch
-import torchvision
-from src.utils_tumor import dis_df, get_df_paths, get_cocos_from_df, get_advanced_dis_df, format_seg_names
-from src.utils_detectron import F_KEY, CLASS_KEY, ENTITY_KEY
-from src.categories import make_categories_advanced, make_categories, cat_mapping_new, cat_naming_new, reverse_cat_list
-#from src.utils_detectron import get_dataloader, personal_score, plot_confusion_matrix, plot_roc_curve, eval_iou_dice, personal_score_simple
-import src.utils_detectron as ud
-
-
-# import some common libraries
 import numpy as np
 import random
 import os
+
+from PIL import Image, ImageOps
+import nrrd
+import cv2
+from sklearn.metrics import confusion_matrix, cohen_kappa_score
+from tqdm.notebook import tqdm
+import matplotlib.pyplot as plt
+
+import torch
+import torchvision
+
 import detectron2
 from detectron2.utils.logger import setup_logger
-from sklearn.metrics import cohen_kappa_score
+from detectron2.utils.visualizer import ColorMode
+from detectron2.data import build_detection_test_loader
+from detectron2.data import MetadataCatalog
+from detectron2.utils.visualizer import Visualizer
+from detectron2.config import get_cfg
+from detectron2 import model_zoo
+
+from src.utils_tumor import dis_df, get_df_paths, get_cocos_from_df, get_advanced_dis_df, format_seg_names
+from src.utils_detectron import F_KEY, CLASS_KEY, ENTITY_KEY
+import src.utils_detectron as ud
+from src.categories import make_categories_advanced, make_categories, cat_mapping_new, cat_naming_new, reverse_cat_list
+
 
 setup_logger()
 cfg = get_cfg()
 print(detectron2.__version__)
 
 #  function definitions for training and evaluation
+
 
 def get_mask_img(df, idx, scale=1, truelab='blue', external=False):
     """extract the segmented image and put it on the image"""
@@ -271,27 +267,32 @@ def make_bool(x):
         return True
     return False
 
+
 vfunc = np.vectorize(make_bool)
+
 
 def make_1(x):
     if x:
         return 1
     return 0
 
-vfunc1 = np.vectorize(make_1)  
+
+vfunc1 = np.vectorize(make_1)
+
 
 def compare_masks(mask1, mask2):
     """calculate iou and dice score with mask1 and mask2"""
-    overlap = mask1*mask2 # Logical AND
+    overlap = mask1*mask2  # Logical AND
     intersection = np.sum(overlap)
-    union = mask1 + mask2 # Logical OR
+    union = mask1 + mask2  # Logical OR
 
-    iou = overlap.sum()/float(union.sum() - overlap.sum()) # Treats "True" as 1,
-                                       # sums number of Trues
-                                       # in overlap and union
-                                       # and divides
+    iou = overlap.sum()/float(union.sum() - overlap.sum())  # Treats "True" as 1,
+    # sums number of Trues
+    # in overlap and union
+    # and divides
     dice = np.mean((2. * intersection)/float(union.sum()))
     return iou, dice
+
 
 def get_bb_from_mask(mask):
     """take max and min from mask in x and y direction"""
@@ -314,10 +315,11 @@ def get_bb_from_mask(mask):
             max_x = column
             if column < min_x:
                 min_x = column
-    
+
     mask_bb[min_y:max_y+1, min_x:max_x+1] = True
-    
+
     return mask_bb
+
 
 def get_iou_masks(external=False):
     """Display the activations"""
@@ -341,7 +343,7 @@ def get_iou_masks(external=False):
     dice_all_mask = []
 
     iou_all_bb = []
-    dice_all_bb = [] 
+    dice_all_bb = []
 
     if external:
         active_idx = text_ex_idx['idx']
@@ -368,7 +370,8 @@ def get_iou_masks(external=False):
 
             instances = outputs["instances"].to("cpu")[:1]
             instances.remove("pred_masks") if not mask else None
-            instances.pred_boxes = [[0, 0, 0, 0]] if not bbox else instances.pred_boxes
+            instances.pred_boxes = [[0, 0, 0, 0]
+                                    ] if not bbox else instances.pred_boxes
 
         v = v.draw_instance_predictions(instances)
 
@@ -379,7 +382,7 @@ def get_iou_masks(external=False):
         mask_pred_bb = vfunc1(mask_pred_bb)
 
         im, offset, im_mask = get_mask_img(
-                    df, idx=active_idx[idx], truelab='red', external=external)
+            df, idx=active_idx[idx], truelab='red', external=external)
 
         back_img = Image.fromarray(v.get_image()[:, :, ::-1] * 0)
         back_img.paste(im, offset, im_mask)
@@ -408,11 +411,15 @@ def get_iou_masks(external=False):
     print(f'Corr Masks: {corr_mask}, {round(corr_mask/len(iou_all_mask), 2)}')
     print(f'Corr BB: {corr_bb}, {round(corr_bb/len(iou_all_bb), 2)}')
 
-    print(f'Iou  Mask: {round(np.mean(iou_all_mask), 2)} +/- {round(np.std(iou_all_mask), 2)}')
-    print(f'Dice Mask: {round(np.mean(dice_all_mask), 2)} +/- {round(np.std(dice_all_mask), 2)}')
+    print(
+        f'Iou  Mask: {round(np.mean(iou_all_mask), 2)} +/- {round(np.std(iou_all_mask), 2)}')
+    print(
+        f'Dice Mask: {round(np.mean(dice_all_mask), 2)} +/- {round(np.std(dice_all_mask), 2)}')
 
-    print(f'Iou  BB: {round(np.mean(iou_all_bb), 2)} +/- {round(np.std(iou_all_bb), 2)}')
-    print(f'Dice BB: {round(np.mean(dice_all_bb), 2)} +/- {round(np.std(dice_all_bb), 2)}')
+    print(
+        f'Iou  BB: {round(np.mean(iou_all_bb), 2)} +/- {round(np.std(iou_all_bb), 2)}')
+    print(
+        f'Dice BB: {round(np.mean(dice_all_bb), 2)} +/- {round(np.std(dice_all_bb), 2)}')
 
     return iou_all_mask, dice_all_mask, iou_all_bb, dice_all_bb
 
@@ -421,11 +428,14 @@ def get_ci(acc, n=140, const=1.96, digits=3, printit=True):
     """calculate confidence intervall"""
     acc = round(acc, digits)
     error = 1 - acc
-    ci_low  = round((1 - (error - const * np.sqrt((error * (1 - error)) / n))), digits) * 100
-    ci_high = round((1 - (error + const * np.sqrt((error * (1 - error)) / n))), digits) * 100
+    ci_low = round(
+        (1 - (error - const * np.sqrt((error * (1 - error)) / n))), digits) * 100
+    ci_high = round(
+        (1 - (error + const * np.sqrt((error * (1 - error)) / n))), digits) * 100
     if printit:
         print(f'Acc: {acc*100}%, 95% CI: {ci_high}%, {ci_low}%)')
     return ci_high, ci_low
+
 
 def print_confinfo(conf):
     """print all relevant infos for confidence intervalls"""
@@ -438,13 +448,16 @@ def print_confinfo(conf):
     sens_high, sens_low = get_ci(sens, n=tp+fn, printit=False)
     spec = round(tn / (tn + fp), 3)
     spec_high, spec_low = get_ci(spec, n=tn+fp, printit=False)
-    acc  = round((tn + tp) / (tn + fp + tp + fn), 3)
+    acc = round((tn + tp) / (tn + fp + tp + fn), 3)
     acc_high, acc_low = get_ci(acc, n=tn + fp + tp + fn, printit=False)
 
+    print(
+        f'sensitivity : {sens} ({tp} of { (tp + fn)}), 95% CI: {sens_high}% {sens_low}%')
+    print(
+        f'specificity : {spec} ({tn} of { (tn + fp)}), 95% CI: {spec_high}% {spec_low}%')
+    print(
+        f'accuracy : {acc} ({tn + tp} of { (tn + fp + tp + fn)}), 95% CI: {acc_high}% {acc_low}%')
 
-    print(f'sensitivity : {sens} ({tp} of { (tp + fn)}), 95% CI: {sens_high}% {sens_low}%')
-    print(f'specificity : {spec} ({tn} of { (tn + fp)}), 95% CI: {spec_high}% {spec_low}%')
-    print(f'accuracy : {acc} ({tn + tp} of { (tn + fp + tp + fn)}), 95% CI: {acc_high}% {acc_low}%')
 
 def evaluate(dset):
     """Use the detectron coco evaluator"""
@@ -454,6 +467,7 @@ def evaluate(dset):
     res = ud.inference_on_dataset(predictor.model, val_loader, evaluator)
 
     return res
+
 
 def print_iou_dice_scores(predictor, df):
     """print the dice scores and iou results"""

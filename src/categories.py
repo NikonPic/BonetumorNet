@@ -1,5 +1,5 @@
 # %%
-def make_categories(simple=True):
+def make_cat(simple=True):
     """fill the categories manually"""
     if simple:
         cat_list = [
@@ -53,7 +53,7 @@ def make_categories(simple=True):
     return cat_list, cat_mapping
 
 
-def make_categories_advanced(simple=True, yolo=False):
+def make_cat_advanced(simple=True, yolo=False):
     """fill the categories manually"""
     if simple:
         cat_list = [
@@ -70,10 +70,10 @@ def make_categories_advanced(simple=True, yolo=False):
             cat_mapping = {
                 "benign" : 0,
                 "malign": 1,
-            } 
+            }
         else:
             cat_mapping = [0, 1]
-            
+
         return cat_list, cat_mapping
 
     cat_list = [
@@ -305,7 +305,7 @@ malign_int = [
 
 benign_int = [
     5, 6, 7, 8, 9, 10, 12, 13, 14, 15
-] 
+]
 
 # %%
 

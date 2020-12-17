@@ -1,6 +1,7 @@
 
 # %%
 # general
+from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 import os
 import json
 from datetime import datetime
@@ -13,12 +14,10 @@ from tqdm import tqdm
 import nrrd
 
 # deep learning
-# The complete Fastai vision library
+# using the fastai vision library
 from fastai.vision import ImageBBox, open_image, itertools
-
-# metrics
-from sklearn.metrics import accuracy_score, auc
 from fastai.metrics import roc_curve
+from sklearn.metrics import accuracy_score, auc
 
 # open images
 from PIL import Image
@@ -29,9 +28,6 @@ from imantics import Mask
 # Pillow repair?
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-# personal
-from categories import make_categories_advanced, cat_mapping_new, reverse_cat_list, malign_int
 
 # %% Create Databunch functionality
 
@@ -128,8 +124,8 @@ def apply_cat(train, valid, test, dis, new_name, new_cat):
 
 
 def get_data_fr_dis(data_fr, born_key='OrTBoard_Patient.GBDAT', diag_key='Erstdiagnosedatum',
-               t_key='Tumor.Entitaet', pos_key='Befundlokalisation', out=True,
-               mode=False):
+                    t_key='Tumor.Entitaet', pos_key='Befundlokalisation', out=True,
+                    mode=False):
     """
     extract ages and other information from data_fr
     """
@@ -146,7 +142,8 @@ def get_data_fr_dis(data_fr, born_key='OrTBoard_Patient.GBDAT', diag_key='Erstdi
 
     # get male(0) / female(1)
     if mode:
-        female_male = [1 if d_loc == 'f' else 0 for d_loc in data_fr['Geschlecht']]
+        female_male = [1 if d_loc ==
+                       'f' else 0 for d_loc in data_fr['Geschlecht']]
     else:
         female_male = [int(name[0] == 'F') for name in data_fr[F_KEY]]
 
@@ -162,7 +159,8 @@ def get_data_fr_dis(data_fr, born_key='OrTBoard_Patient.GBDAT', diag_key='Erstdi
     if out:
         for key in dis.keys():
             print(f"{key}:")
-            print_info(ages, labels, female_male, dis[key]['idx'], tumor_kind, position)
+            print_info(ages, labels, female_male,
+                       dis[key]['idx'], tumor_kind, position)
 
         print("All:")
         print_info(ages, labels, female_male, list(
@@ -190,7 +188,7 @@ def print_info(ages, labels, female_male, active_idx, tumor_kind, position, nums
     print(f'Malignancy: {malign} ({malign_p}%)')
     print(f'Benign: {len(active_idx)-malign} ({100-malign_p}%)')
 
-    _, cat_mapping = make_categories_advanced(simple=False)
+    _, cat_mapping = make_cat_advanced(simple=False)
 
     tumor_list = list(cat_mapping.keys())
 
@@ -233,10 +231,10 @@ def plot_roc_curve(interp, indx=1, line_w=2, off=0.02):
     """
     draw the roc curve
     """
-    x, y = roc_curve(interp.preds[:, indx], interp.y_true)
-    auc_v = auc(x, y)
-    plt.figure("roc-curve", figsize=(8,8))
-    plt.plot(x, y, color='darkorange',
+    x_pos, y_pos = roc_curve(interp.preds[:, indx], interp.y_true)
+    auc_v = auc(x_pos, y_pos)
+    plt.figure("roc-curve", figsize=(8, 8))
+    plt.plot(x_pos, y_pos, color='darkorange',
              label='ROC curve (area = %0.2f)' % auc_v)
     plt.grid(0.25)
     plt.plot([0, 1], [0, 1], color='navy', lw=line_w, linestyle='--')
@@ -249,7 +247,8 @@ def plot_roc_curve(interp, indx=1, line_w=2, off=0.02):
 
 # %% Segmentation: Create the bounding boxes
 
-def add_bb_2_csv(csv_path, seg_path, pic_path, crop_path, fac=1, crop=True, mode=False):
+
+def add_bb_2_csv(csv_path, seg_path, pic_path, fac=1, crop=True, mode=False):
     """
     construct the bounding boxes and add them to the csv file
     """
@@ -308,8 +307,9 @@ def add_classes_to_csv(csv_path, mode=False):
     len_data_fr = len(data_fr)
 
     # predefine arrays
-    agg_non_agg, ben_loc_mal, clinicla_flow, clinicla_flow_red, super_ent = np.empty([len_data_fr]), np.empty(
-        [len_data_fr]), np.empty([len_data_fr]), np.empty([len_data_fr]), np.empty([len_data_fr])
+    agg_non_agg, ben_loc_mal, clinicla_flow, clinicla_flow_red, super_ent = np.empty(
+        [len_data_fr]), np.empty([len_data_fr]), np.empty([len_data_fr]), np.empty(
+        [len_data_fr]), np.empty([len_data_fr])
 
     # iterate trough the files:
     for i, label in tqdm(enumerate(data_fr[ENTITY_KEY])):
@@ -318,19 +318,22 @@ def add_classes_to_csv(csv_path, mode=False):
         clinicla_flow[i] = cat_mapping_new[label][3]
         clinicla_flow_red[i] = cat_mapping_new[label][4]
         super_ent[i] = cat_mapping_new[label][6]
-    
-    benmal_info = [] 
+
+    benmal_info = []
     for loc_ent in data_fr[ENTITY_KEY]:
         ent_int = cat_mapping_new[loc_ent][0]
         benmal = 1 if ent_int in malign_int else 0
         benmal_info.append(benmal)
 
+    long_txt = 'Grade for clinical workflow (2 + 3 = 2 > assessment in MSK center needed)'
+
     # add the bounding boxes to the dataframe
-    data_fr[CLASS_KEY] = benmal_info  
+    data_fr[CLASS_KEY] = benmal_info
+    data_fr[long_txt] = clinicla_flow_red
+
     data_fr['Aggressive - Non Aggressive'] = agg_non_agg
     data_fr['Benigne - Local Aggressive - Maligne'] = ben_loc_mal
     data_fr['Grade of clinical workflow'] = clinicla_flow
-    data_fr['Grade for clinical workflow (2 + 3 = 2 > assessment in MSK center needed)'] = clinicla_flow_red
     data_fr['Super Entity (chon: 0, osteo:1, meta:2, other:3)'] = super_ent
 
     # save to csv!
@@ -450,7 +453,7 @@ def make_empty_coco(mode='train', simple=True):
     des = f'{mode}-BoneTumor detection in coco-format'
     today = date.today()
     today_str = str(today.year) + str(today.month) + str(today.day)
-    cat_list, cat_mapping = make_categories_advanced(simple)
+    cat_list, cat_mapping = make_cat_advanced(simple)
 
     coco = {
         "infos": {
@@ -497,13 +500,14 @@ def get_cocos_from_data_fr(data_fr, paths, save=True, seg=True, simple=True, new
 
             save_file = f'{add}{mode}.json'
             print(f'Saving to: {save_file}')
-            with open(save_file, 'w') as fp:
-                json.dump(cocos[i], fp, indent=2)
+            with open(save_file, 'w') as file_p:
+                json.dump(cocos[i], file_p, indent=2)
 
     return cocos
 
 
-def make_coco(data_fr, mode, idxs, seg=False, path='../PNG2', path_nrd='../SEG', simple=True, newmode=0):
+def make_coco(data_fr, mode, idxs,
+              seg=False, path='../PNG2', path_nrd='../SEG', simple=True, newmode=0):
     # create the empty coco format
     coco, cat_mapping = make_empty_coco(mode, simple=simple)
 
@@ -537,7 +541,7 @@ def make_coco(data_fr, mode, idxs, seg=False, path='../PNG2', path_nrd='../SEG',
         poly = [int(p) for p in poly]
 
         # get the class:
-        name = obj[CLASS_KEY] if simple else o[ENTITY_KEY]
+        name = obj[CLASS_KEY] if simple else obj[ENTITY_KEY]
 
         cat = cat_mapping[name]
 
@@ -602,12 +606,12 @@ def tlbr2bbox(top, left, bottom, right, oper=int):
     to ->
     bbox = [x(left), y(top), width, height]
     """
-    x = oper(left)
-    y = oper(top)
+    x_pos = oper(left)
+    y_pos = oper(top)
     width = oper(right - left)
     height = oper(bottom - top)
 
-    return [x, y, width, height]
+    return [x_pos, y_pos, width, height]
 
 
 def binary_mask_to_rle(binary_mask):
@@ -684,7 +688,7 @@ def regenerate_ex_names(paths, new_path='../PNG_external'):
 
 # %% Perform dataset preparation
 if __name__ == '__main__':
-    simple = True
+    SIMPLE = True
 
     for external_mode in [False, True]:
         # get the paths
@@ -697,7 +701,7 @@ if __name__ == '__main__':
         # %% generate the cropped pictures in the crop folder
         print('\n\nAdd the bounding box to the csv:')
         add_bb_2_csv(paths["csv"], paths["seg"],
-                     paths["pic"], paths["crop"], fac=1.0, mode=external_mode)
+                     paths["pic"], fac=1.0, mode=external_mode)
 
         # %% add the detailed classes to the dataframe
         print('\n\nAdd the detailed classes to the csv')
@@ -706,7 +710,7 @@ if __name__ == '__main__':
         # %% build the coco-formated json
         print('\n\nTransform to coco format')
         cocos = get_cocos_from_data_fr(data_fr, paths, save=True,
-                                  seg=True, simple=simple, newmode=0, ex_mode=external_mode)
+                                       seg=True, simple=SIMPLE, newmode=0, ex_mode=external_mode)
 
 
 # %%
