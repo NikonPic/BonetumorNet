@@ -1,17 +1,14 @@
 # %%
-import numpy as np
-import random
 import os
-
+import numpy as np
 from PIL import Image, ImageOps
 import nrrd
 import cv2
-from sklearn.metrics import confusion_matrix, cohen_kappa_score
+from sklearn.metrics import confusion_matrix
 from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
 
 import torch
-import torchvision
 
 import detectron2
 from detectron2.utils.logger import setup_logger
@@ -20,12 +17,11 @@ from detectron2.data import build_detection_test_loader
 from detectron2.data import MetadataCatalog
 from detectron2.utils.visualizer import Visualizer
 from detectron2.config import get_cfg
-from detectron2 import model_zoo
 
-from src.utils_tumor import dis_df, get_df_paths, get_cocos_from_df, get_advanced_dis_df, format_seg_names
+from src.utils_tumor import format_seg_names
 from src.utils_detectron import F_KEY, CLASS_KEY, ENTITY_KEY
 import src.utils_detectron as ud
-from src.categories import make_categories_advanced, make_categories, cat_mapping_new, cat_naming_new, reverse_cat_list
+from src.categories import make_cat_advanced, cat_mapping_new, cat_naming_new, reverse_cat_list
 
 
 setup_logger()
@@ -35,13 +31,13 @@ print(detectron2.__version__)
 #  function definitions for training and evaluation
 
 
-def get_mask_img(df, idx, scale=1, truelab='blue', external=False):
+def get_mask_img(data_fr, data_fr_ex, idx, truelab='blue', external=False):
     """extract the segmented image and put it on the image"""
     df_loc = df
     segpath_loc = './SEG'
 
     if external:
-        df_loc = df_ex
+        df_loc = data_fr_ex
         segpath_loc = './SEG_external'
 
     filename = df_loc[F_KEY][idx]
@@ -53,12 +49,12 @@ def get_mask_img(df, idx, scale=1, truelab='blue', external=False):
         :2]
     offset = [int(off) for off in offset_strings]
 
-    im = Image.fromarray(nrrd_arr, mode='L').convert('L')
-    im_mask = im.copy()
-    im = ImageOps.colorize(im, black='black', white=truelab)
+    img = Image.fromarray(nrrd_arr, mode='L').convert('L')
+    img_mask = img.copy()
+    img = ImageOps.colorize(img, black='black', white=truelab)
 
     # now rescale:
-    return im, offset, im_mask
+    return img, offset, img_mask
 
 
 def update(
@@ -208,7 +204,7 @@ def personal_advanced_score(predictor, df, mode="test", simple=False, imgpath=".
     files = [os.path.join(imgpath, f"{f}.png") for f in df[F_KEY]]
 
     # apply the category mapping dep. on simple-mode
-    _, cat_mapping = make_categories_advanced(simple)
+    _, cat_mapping = make_cat_advanced(simple)
 
     res = {}
 
@@ -382,7 +378,7 @@ def get_iou_masks(external=False):
         mask_pred_bb = vfunc1(mask_pred_bb)
 
         im, offset, im_mask = get_mask_img(
-            df, idx=active_idx[idx], truelab='red', external=external)
+            df, df_ex, idx=active_idx[idx], truelab='red', external=external)
 
         back_img = Image.fromarray(v.get_image()[:, :, ::-1] * 0)
         back_img.paste(im, offset, im_mask)
@@ -459,7 +455,7 @@ def print_confinfo(conf):
         f'accuracy : {acc} ({tn + tp} of { (tn + fp + tp + fn)}), 95% CI: {acc_high}% {acc_low}%')
 
 
-def evaluate(dset):
+def evaluate(dset, predictor):
     """Use the detectron coco evaluator"""
 
     evaluator = ud.COCOEvaluator(dset, cfg, False, output_dir="./output/")

@@ -4,7 +4,7 @@ import nrrd
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
-from src.detec_helper import compare_masks, get_bb_from_mask
+from detec_helper import compare_masks, get_bb_from_mask
 
 
 p1 = 'SEG'
@@ -35,21 +35,18 @@ def get_nrrd_mask(filename, img_path, nrrd_path, fac=15, nrrd_key='Segmentation_
 
     return np.array(mask)[:, :, 0]
 
-def make_bool(x):
-    if x > 0:
+def make_bool(x_var):
+    if x_var > 0:
         return True
     return False
 
-def make_1(x):
-    if x:
+def make_1(x_var):
+    if x_var:
         return 1
     return 0
 
 vfunc = np.vectorize(make_bool)
 vfunc1 = np.vectorize(make_1)
-
-
-
 comp2_seg = []
 
 # ensure all files exist
@@ -77,7 +74,7 @@ for seg in tqdm(comp2_seg):
 
     iou_loc, dice_loc = compare_masks(mask1, mask2)
     iou_loc_bb, dice_loc_bb = compare_masks(mask1_bb, mask2_bb)
-    
+
     ious_bb.append(iou_loc_bb)
     dice_scores_bb.append(dice_loc_bb)
 
