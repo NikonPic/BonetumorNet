@@ -1,12 +1,11 @@
 
 # %%
 # general
-from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 import os
 import json
-from datetime import datetime
-from datetime import date
+from datetime import datetime, date
 from itertools import groupby
+from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,13 +19,11 @@ from fastai.metrics import roc_curve
 from sklearn.metrics import accuracy_score, auc
 
 # open images
-from PIL import Image
+from PIL import Image, ImageFile
 
 # generate polygons:
 from imantics import Mask
 
-# Pillow repair?
-from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # %% Create Databunch functionality
@@ -42,11 +39,11 @@ CLASS_KEY = 'Aggressiv/Nicht-aggressiv'
 ENTITY_KEY = 'Tumor.Entitaet'
 
 
-def get_advanced_dis_data_fr(data_fr, mode=False):
+def get_advanced_dis_data_fr(data_fr_loc, mode=False):
     """
     redefine the dataframe distribution for advanced training -> separate by entities!
     """
-    # 1. get number of entities in overall_data_fr
+    # 1. get number of entities in overall_data_fr_loc
     # 2. split entities according to train, val / test-split
 
     # init the empyt idx lists
@@ -58,9 +55,9 @@ def get_advanced_dis_data_fr(data_fr, mode=False):
     cats = reverse_cat_list
 
     for cat in cats:
-        # get all matching data_fr entries
-        data_fr_loc = data_fr.loc[data_fr[ENTITY_KEY] == cat]
-        loclen = len(data_fr_loc)
+        # get all matching data_fr_loc entries
+        data_fr_loc_loc = data_fr_loc.loc[data_fr_loc[ENTITY_KEY] == cat]
+        loclen = len(data_fr_loc_loc)
 
         # now split acc to the indices
         validlen = round(loclen * VALID_PART)
@@ -68,14 +65,14 @@ def get_advanced_dis_data_fr(data_fr, mode=False):
         trainlen = loclen - validlen - testlen
 
         # get the matching indices and extend the idx list
-        data_fr_loc_train = data_fr_loc.iloc[:trainlen]
-        train_idx.extend(list(data_fr_loc_train.index))
+        data_fr_loc_loc_train = data_fr_loc_loc.iloc[:trainlen]
+        train_idx.extend(list(data_fr_loc_loc_train.index))
 
-        data_fr_loc_valid = data_fr_loc.iloc[trainlen:trainlen+validlen]
-        valid_idx.extend(list(data_fr_loc_valid.index))
+        data_fr_loc_loc_valid = data_fr_loc_loc.iloc[trainlen:trainlen+validlen]
+        valid_idx.extend(list(data_fr_loc_loc_valid.index))
 
-        data_fr_loc_test = data_fr_loc.iloc[trainlen+validlen::]
-        test_idx.extend(list(data_fr_loc_test.index))
+        data_fr_loc_loc_test = data_fr_loc_loc.iloc[trainlen+validlen::]
+        test_idx.extend(list(data_fr_loc_loc_test.index))
 
     # summarize in dictionary
     dis = {
@@ -96,8 +93,8 @@ def get_advanced_dis_data_fr(data_fr, mode=False):
     if mode:
         dis = {
             'test_external': {
-                'len': len(data_fr),
-                'idx': list(range(len(data_fr))),
+                'len': len(data_fr_loc),
+                'idx': list(range(len(data_fr_loc))),
             }
         }
 
@@ -123,35 +120,35 @@ def apply_cat(train, valid, test, dis, new_name, new_cat):
     return train, valid, test
 
 
-def get_data_fr_dis(data_fr, born_key='OrTBoard_Patient.GBDAT', diag_key='Erstdiagnosedatum',
+def get_data_fr_dis(data_fr_loc, born_key='OrTBoard_Patient.GBDAT', diag_key='Erstdiagnosedatum',
                     t_key='Tumor.Entitaet', pos_key='Befundlokalisation', out=True,
                     mode=False):
     """
-    extract ages and other information from data_fr
+    extract ages and other information from data_fr_loc
     """
 
     # get ages
     if mode:
-        ages = data_fr['Alter bei Erstdiagnose']
+        ages_loc = data_fr_loc['Alter bei Erstdiagnose']
     else:
-        ages = [calculate_age(born, diag) for (born, diag) in zip(
-            data_fr[born_key], data_fr[diag_key])]
+        ages_loc = [calculate_age(born, diag) for (born, diag) in zip(
+            data_fr_loc[born_key], data_fr_loc[diag_key])]
 
     # get labels
-    labels = [float(lab) for lab in data_fr[CLASS_KEY]]
+    labels = [float(lab) for lab in data_fr_loc[CLASS_KEY]]
 
     # get male(0) / female(1)
     if mode:
         female_male = [1 if d_loc ==
-                       'f' else 0 for d_loc in data_fr['Geschlecht']]
+                       'f' else 0 for d_loc in data_fr_loc['Geschlecht']]
     else:
-        female_male = [int(name[0] == 'F') for name in data_fr[F_KEY]]
+        female_male = [int(name[0] == 'F') for name in data_fr_loc[F_KEY]]
 
     # tumor_kind
-    tumor_kind = data_fr[t_key]
+    tumor_kind = data_fr_loc[t_key]
 
     # position
-    position = data_fr[pos_key]
+    position = data_fr_loc[pos_key]
 
     # get the shuffled indexes
     dis = get_advanced_dis_data_fr(data_fr, mode=mode)
@@ -159,23 +156,23 @@ def get_data_fr_dis(data_fr, born_key='OrTBoard_Patient.GBDAT', diag_key='Erstdi
     if out:
         for key in dis.keys():
             print(f"{key}:")
-            print_info(ages, labels, female_male,
+            print_info(ages_loc, labels, female_male,
                        dis[key]['idx'], tumor_kind, position)
 
         print("All:")
-        print_info(ages, labels, female_male, list(
-            range(len(ages))), tumor_kind, position)
+        print_info(ages_loc, labels, female_male, list(
+            range(len(ages_loc))), tumor_kind, position)
 
-    return ages
+    return ages_loc
 
 
-def print_info(ages, labels, female_male, active_idx, tumor_kind, position, nums=1):
+def print_info(loc_ages, labels, female_male, active_idx, tumor_kind, position, nums=1):
     """
     summarize all informations as a print message
     """
 
-    age = np.array([ages[i] for i in active_idx]).mean().round(nums)
-    age_std = np.array([ages[i]
+    age = np.array([loc_ages[i] for i in active_idx]).mean().round(nums)
+    age_std = np.array([loc_ages[i]
                         for i in active_idx]).std().round(nums)
     print(f'Age: {age} ± {age_std}')
 
@@ -214,7 +211,7 @@ def print_info(ages, labels, female_male, active_idx, tumor_kind, position, nums
         per_pos = round(100 * num_pos / len(active_idx), nums)
         print(f'{pos_k}: {num_pos} ({per_pos}%)')
 
-    dset_part = round(100 * len(active_idx) / len(ages), nums)
+    dset_part = round(100 * len(active_idx) / len(loc_ages), nums)
     print(f'Dataset Nums: {len(active_idx)} ({dset_part}%)\n\n')
 
 # %% Interpret the results
@@ -248,7 +245,7 @@ def plot_roc_curve(interp, indx=1, line_w=2, off=0.02):
 # %% Segmentation: Create the bounding boxes
 
 
-def add_bb_2_csv(csv_path, seg_path, pic_path, fac=1, crop=True, mode=False):
+def add_bb_2_csv(csv_path, seg_path, pic_path, fac=1, mode=False):
     """
     construct the bounding boxes and add them to the csv file
     """
@@ -265,7 +262,7 @@ def add_bb_2_csv(csv_path, seg_path, pic_path, fac=1, crop=True, mode=False):
         [len_data_fr]), np.empty([len_data_fr]), np.empty([len_data_fr])
 
     # iterate trough the files:
-    for i, (file, label) in tqdm(enumerate(zip(data_fr[F_KEY], data_fr[CLASS_KEY]))):
+    for i, (file, _) in tqdm(enumerate(zip(data_fr[F_KEY], data_fr[CLASS_KEY]))):
 
         # paths:
         imfile = os.path.join(pic_path, f'{file}.png')
@@ -275,7 +272,7 @@ def add_bb_2_csv(csv_path, seg_path, pic_path, fac=1, crop=True, mode=False):
         try:
             # get the bounding box
             top[i], left[i], bottom[i], right[i] = nrrd_2_bbox(
-                segfile, imfile, fac, title=str(label))
+                segfile, imfile, fac)
         except FileNotFoundError:
             print(segfile)
 
@@ -300,11 +297,11 @@ def add_classes_to_csv(csv_path, mode=False):
     """
     # open csv
     if mode:
-        data_fr = pd.read_excel(csv_path)
+        data_fr_loc = pd.read_excel(csv_path)
     else:
-        data_fr = pd.read_csv(csv_path, header='infer', delimiter=';')
+        data_fr_loc = pd.read_csv(csv_path, header='infer', delimiter=';')
 
-    len_data_fr = len(data_fr)
+    len_data_fr = len(data_fr_loc)
 
     # predefine arrays
     agg_non_agg, ben_loc_mal, clinicla_flow, clinicla_flow_red, super_ent = np.empty(
@@ -312,7 +309,7 @@ def add_classes_to_csv(csv_path, mode=False):
         [len_data_fr]), np.empty([len_data_fr])
 
     # iterate trough the files:
-    for i, label in tqdm(enumerate(data_fr[ENTITY_KEY])):
+    for i, label in tqdm(enumerate(data_fr_loc[ENTITY_KEY])):
         agg_non_agg[i] = cat_mapping_new[label][1]
         ben_loc_mal[i] = cat_mapping_new[label][2]
         clinicla_flow[i] = cat_mapping_new[label][3]
@@ -320,7 +317,7 @@ def add_classes_to_csv(csv_path, mode=False):
         super_ent[i] = cat_mapping_new[label][6]
 
     benmal_info = []
-    for loc_ent in data_fr[ENTITY_KEY]:
+    for loc_ent in data_fr_loc[ENTITY_KEY]:
         ent_int = cat_mapping_new[loc_ent][0]
         benmal = 1 if ent_int in malign_int else 0
         benmal_info.append(benmal)
@@ -328,29 +325,30 @@ def add_classes_to_csv(csv_path, mode=False):
     long_txt = 'Grade for clinical workflow (2 + 3 = 2 > assessment in MSK center needed)'
 
     # add the bounding boxes to the dataframe
-    data_fr[CLASS_KEY] = benmal_info
-    data_fr[long_txt] = clinicla_flow_red
+    data_fr_loc[CLASS_KEY] = benmal_info
+    data_fr_loc[long_txt] = clinicla_flow_red
 
-    data_fr['Aggressive - Non Aggressive'] = agg_non_agg
-    data_fr['Benigne - Local Aggressive - Maligne'] = ben_loc_mal
-    data_fr['Grade of clinical workflow'] = clinicla_flow
-    data_fr['Super Entity (chon: 0, osteo:1, meta:2, other:3)'] = super_ent
+    data_fr_loc['Aggressive - Non Aggressive'] = agg_non_agg
+    data_fr_loc['Benigne - Local Aggressive - Maligne'] = ben_loc_mal
+    data_fr_loc['Grade of clinical workflow'] = clinicla_flow
+    data_fr_loc['Super Entity (chon: 0, osteo:1, meta:2, other:3)'] = super_ent
 
     # save to csv!
     if mode:
-        data_fr.to_excel(csv_path)
+        data_fr_loc.to_excel(csv_path)
     else:
-        data_fr.to_csv(csv_path, sep=';', index=False)
+        data_fr_loc.to_csv(csv_path, sep=';', index=False)
 
-    return data_fr
+    return data_fr_loc
 
 
-def nrrd_2_bbox(nrrd_path, im_path, fac,
-                title='tumor', show=False,
+def nrrd_2_bbox(nrrd_path, im_path,
+                fac, show=False,
                 nrrd_key='Segmentation_ReferenceImageExtentOffset'):
     """
     generate a boundingbox from the nrrd file
     """
+    title='tumor'
     # 1. open nrrd image:
     readdata, header = nrrd.read(nrrd_path)
     nrrd_img = np.transpose(readdata[:, :, 0] * 255)
@@ -439,8 +437,8 @@ def generate_masks(data_fr, nrrd_path, pic_path, mask_path, gen_rad=True):
 
             if gen_rad:
                 mask = np.array(mask)
-                sh = mask.shape
-                mask = mask.reshape((sh[2], sh[1], sh[0]))
+                shape = mask.shape
+                mask = mask.reshape((shape[2], shape[1], shape[0]))
                 nrrd.write(f'../radiomics/label/{file}.nrrd', mask)
 
         except FileNotFoundError:
@@ -679,10 +677,10 @@ def regenerate_ex_names(paths, new_path='../PNG_external'):
 
     data_fr = pd.read_excel(paths["csv"])
     old_path = paths['pic']
-    for id, fname in zip(data_fr['id'], data_fr[F_KEY]):
+    for num, fname in zip(data_fr['id'], data_fr[F_KEY]):
         filename = f'{old_path}/{fname}.png'
         img = Image.open(filename)
-        filename_new = f'{new_path}/{id}.png'
+        filename_new = f'{new_path}/{num}.png'
         img.save(filename_new)
 
 

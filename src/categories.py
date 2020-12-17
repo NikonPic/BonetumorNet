@@ -52,9 +52,7 @@ def make_cat(simple=True):
     }
     return cat_list, cat_mapping
 
-
-def make_cat_advanced(simple=True, yolo=False):
-    """fill the categories manually"""
+def get_cat_list(simple):
     if simple:
         cat_list = [
             {
@@ -66,17 +64,8 @@ def make_cat_advanced(simple=True, yolo=False):
                 "name": "Malignant Tumor",
             }
         ]
-        if yolo:
-            cat_mapping = {
-                "benign" : 0,
-                "malign": 1,
-            }
-        else:
-            cat_mapping = [0, 1]
-
-        return cat_list, cat_mapping
-
-    cat_list = [
+    else:
+        cat_list = [
         # malignant first
         {
             "supercategory": "Malignant",
@@ -160,6 +149,21 @@ def make_cat_advanced(simple=True, yolo=False):
             "name": "Fibrous dysplasia",
         },
     ]
+    return cat_list
+
+def make_cat_advanced(simple=True, yolo=False):
+    """fill the categories manually"""
+    cat_list = get_cat_list(simple)
+    if simple:
+        if yolo:
+            cat_mapping = {
+                "benign" : 0,
+                "malign": 1,
+            }
+        else:
+            cat_mapping = [0, 1]
+
+        return cat_list, cat_mapping
     # The names from datainfo are used here!
     cat_mapping = {
         # malign

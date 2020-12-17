@@ -1,47 +1,49 @@
 # %%
 # define some useful functionalities for detectron2
-from categories import cat_mapping_new, malign_int, benign_int
-from tqdm.notebook import tqdm
-import json
-import cv2
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import itertools
 import os
-import torch
+import json
+import itertools
 import copy
 import math
 import random
+import logging
+
+from categories import cat_mapping_new, malign_int, benign_int, make_cat_advanced
+from tqdm.notebook import tqdm
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import torch
+
 from PIL import Image
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 from torchvision.transforms import functional as F
-from radiomics import featureextractor
 from pycocotools.coco import COCO
 
 # detectron core specific
 from fvcore.common.file_io import PathManager
 from fvcore.transforms.transform import Transform
+
 # detectron specific
+import detectron2
 from detectron2.data import build_detection_train_loader
 from detectron2.data import transforms as T
 from detectron2.data import detection_utils as utils
 from detectron2.engine import DefaultTrainer
 from detectron2.evaluation.evaluator import DatasetEvaluator
-from detectron2.evaluation import COCOEvaluator, SemSegEvaluator
-import logging
+from detectron2.evaluation import COCOEvaluator
 
-import detectron2
 if int(detectron2.__version__.split('.')[1]) > 1:
     from detectron2.data.transforms.augmentation import TransformGen
 else:
     from detectron2.data.transforms.transform_gen import TransformGen
 
 # personal functionality
-from utils_tumor import get_advanced_dis_data_fr, make_categories, make_cat_advanced, CLASS_KEY, ENTITY_KEY, F_KEY
+from utils_tumor import get_advanced_dis_data_fr, CLASS_KEY, ENTITY_KEY, F_KEY
 
 
 class MyEvaluator(DatasetEvaluator):
+    """Evaluator for Any Dataset, here redefined from source to avieche more funcionality"""
 
     def __init__(self, cfg, distributed, output_dir=None, *, use_fast_impl=True):
         self._tasks = self._tasks_from_config(cfg)
@@ -97,11 +99,11 @@ class RotTransform(Transform):
     Perform rotation on image
     """
 
-    def __init__(self, degree, h, w):
+    def __init__(self, degree, height, width):
         super().__init__()
-        self.degree, self.h, self.w = degree, h, w
-        self.center_x = w // 2
-        self.center_y = h // 2
+        self.degree, self.height, self.width = degree, height, width
+        self.center_x = width // 2
+        self.center_y = height // 2
         self.sind = math.sin(degree * (math.pi / 180))
         self.cosd = math.cos(degree * (math.pi / 180))
 
@@ -178,23 +180,23 @@ class RandomRot(TransformGen):
 
     def get_transform(self, img):
         # get the height / width
-        h, w = img.shape[:2]
+        height, width = img.shape[:2]
         # get random angle in range
         ang = self.get_params([-self.deg_range, self.deg_range])
         # return rotation operation
-        return RotTransform(ang, h=h, w=w)
+        return RotTransform(ang, height=height, width=width)
 
 # %%
 
 
-def softmax(x):
+def softmax(x_var):
     """softmax norm vector to 1"""
-    return np.exp(x)/sum(np.exp(x))
+    return np.exp(x_var)/sum(np.exp(x_var))
 
 
-def get_active_idx(df, mode, external=False):
+def get_active_idx(data_fr, mode, external=False):
     """Get the currently active indexes depending on the dataset mode(=test)"""
-    dis = get_advanced_dis_data_fr(df, mode=external)
+    dis = get_advanced_dis_data_fr(data_fr, mode=external)
     # get the indices of the dataset
     if mode == "test":
         active_idx = dis["test"]["idx"]
@@ -248,22 +250,19 @@ def auroc_helper(out, pred, entity, targets2, preds2, count2, pred_score):
     return count2
 
 
-def personal_score(predictor, df, mode="test", simple=True, imgpath="./PNG2", advanced=True, external=False):
+def personal_score(predictor, data_fr, mode="test", simple=True, imgpath="./PNG2", advanced=True, external=False):
     """define the accuracy"""
     # get the dataset distribution
-    active_idx = get_active_idx(df, mode, external=external)
+    active_idx = get_active_idx(data_fr, mode, external=external)
 
-    # get the actibe files
+    # get the active files
     if external:
-        files = [os.path.join(imgpath, f"{f}.png") for f in df['id']]
+        files = [os.path.join(imgpath, f"{f}.png") for f in data_fr['id']]
     else:
-        files = [os.path.join(imgpath, f"{f}.png") for f in df[F_KEY]]
+        files = [os.path.join(imgpath, f"{f}.png") for f in data_fr[F_KEY]]
 
     # apply the category mapping dep. on simple-mode
-    if advanced:
-        _, cat_mapping = make_categories_advanced(simple)
-    else:
-        _, cat_mapping = make_categories(simple)
+    _, cat_mapping = make_cat_advanced(simple)
 
     # counters during evaluation
     count, count2 = 0, 0
@@ -278,8 +277,8 @@ def personal_score(predictor, df, mode="test", simple=True, imgpath="./PNG2", ad
     for idx in tqdm(active_idx):
         with torch.no_grad():
             # load image
-            im = cv2.imread(files[idx])
-            outputs = predictor(im)
+            img = cv2.imread(files[idx])
+            outputs = predictor(img)
 
             # get predicitions
             out = outputs["instances"].to("cpu")
@@ -288,19 +287,18 @@ def personal_score(predictor, df, mode="test", simple=True, imgpath="./PNG2", ad
 
         preds.append(pred)
 
-        # select the relevant name from the df
-        malignant = df[CLASS_KEY][idx]
-        entity = df[ENTITY_KEY][idx]
+        # select the relevant name from the data_fr
+        malignant = data_fr[CLASS_KEY][idx]
+        entity = data_fr[ENTITY_KEY][idx]
 
         _ = auroc_helper(out, pred, entity, targets2,
-                              preds2, count2, pred_score)
+                         preds2, count2, pred_score)
 
         pred_int = pred
         true_int = cat_mapping_new[entity][0]
 
         if (pred_int in malign_int) and (true_int in malign_int):
             count2 += 1
-    
         if (pred_int in benign_int) and (true_int in benign_int):
             count2 += 1
 
@@ -335,8 +333,10 @@ def personal_score(predictor, df, mode="test", simple=True, imgpath="./PNG2", ad
     return res
 
 # %%
+
+
 def plot_confusion_matrix(
-    cm, target_names, title="Confusion matrix", cmap=None, normalize=False, ft=16
+    conf_mat, target_names, title="Confusion matrix", cmap=None, normalize=False, font=16
 ):
     """
     Citiation
@@ -344,51 +344,49 @@ def plot_confusion_matrix(
     http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html
 
     """
-    
-
-    accuracy = np.trace(cm) / float(np.sum(cm))
+    accuracy = np.trace(conf_mat) / float(np.sum(conf_mat))
     misclass = 1 - accuracy
 
     if cmap is None:
         cmap = plt.get_cmap("Blues")
 
     fig = plt.figure(figsize=(16, 16))
-    plt.imshow(cm, interpolation="nearest", cmap=cmap)
-    plt.title(title, fontsize=ft)
+    plt.imshow(conf_mat, interpolation="nearest", cmap=cmap)
+    plt.title(title, fontsize=font)
     # plt.colorbar()
 
     if target_names is not None:
         tick_marks = np.arange(len(target_names))
-        plt.xticks(tick_marks, target_names, rotation=90, fontsize=ft)
-        plt.yticks(tick_marks, target_names, fontsize=ft)
+        plt.xticks(tick_marks, target_names, rotation=90, fontsize=font)
+        plt.yticks(tick_marks, target_names, fontsize=font)
 
     if normalize:
-        cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+        conf_mat = conf_mat.astype("float") / conf_mat.sum(axis=1)[:, np.newaxis]
 
-    thresh = cm.max() / 1.5 if normalize else cm.max() / 2
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+    thresh = conf_mat.max() / 1.5 if normalize else conf_mat.max() / 2
+    for i, j in itertools.product(range(conf_mat.shape[0]), range(conf_mat.shape[1])):
         if normalize:
             plt.text(
                 j,
                 i,
-                "{:0.4f}".format(cm[i, j]),
+                "{:0.4f}".format(conf_mat[i, j]),
                 horizontalalignment="center",
-                color="white" if cm[i, j] > thresh else "black", fontsize=ft
+                color="white" if conf_mat[i, j] > thresh else "black", fontsize=font
             )
         else:
             plt.text(
                 j,
                 i,
-                "{:,}".format(cm[i, j]),
+                "{:,}".format(conf_mat[i, j]),
                 horizontalalignment="center",
-                color="white" if cm[i, j] > thresh else "black", fontsize=ft
+                color="white" if conf_mat[i, j] > thresh else "black", fontsize=font
             )
 
     # plt.tight_layout()
-    plt.ylabel("True label", fontsize=ft)
+    plt.ylabel("True label", fontsize=font)
     plt.xlabel(
         "Predicted label\naccuracy={:0.4f}; misclass={:0.4f}".format(
-            accuracy, misclass), fontsize=ft
+            accuracy, misclass), fontsize=font
     )
     plt.show()
     return fig
@@ -433,7 +431,7 @@ def get_dicts_from_coco(imgdir="../PNG2", mode="train"):
     return dataset_dict
 
 
-class MyDatasetMapper(object):
+class MyDatasetMapper():
     """
     Customized Datasetmapper, strongly based on the default one:
     https://detectron2.readthedocs.io/_modules/detectron2/data/dataset_mapper.html#DatasetMapper
@@ -443,8 +441,7 @@ class MyDatasetMapper(object):
         if cfg.INPUT.CROP.ENABLED and is_train:
             self.crop_gen = T.RandomCrop(
                 cfg.INPUT.CROP.TYPE, cfg.INPUT.CROP.SIZE)
-            logging.getLogger(__name__).info(
-                "CropGen used in training: " + str(self.crop_gen))
+
         else:
             self.crop_gen = None
 
@@ -472,6 +469,52 @@ class MyDatasetMapper(object):
                 else cfg.DATASETS.PRECOMPUTED_PROPOSAL_TOPK_TEST
             )
         self.is_train = is_train
+
+    def do_train(self, dataset_dict):
+        """provide dict in train mode"""
+        # USER: Modify this if you want to keep them for some reason.
+        dataset_dict.pop("annotations", None)
+        dataset_dict.pop("sem_seg_file_name", None)
+        return dataset_dict
+
+    def do_annotations(self, dataset_dict, loc_transforms, loc_image_shape):
+        """add annotations if required"""
+        if "annotations" in dataset_dict:
+            # USER: Modify this if you want to keep them for some reason.
+            for anno in dataset_dict["annotations"]:
+                if not self.mask_on:
+                    anno.pop("segmentation", None)
+                if not self.keypoint_on:
+                    anno.pop("keypoints", None)
+
+            # USER: Implement additional transformations if you have other types of data
+            annos = [
+                utils.transform_instance_annotations(
+                    obj, loc_transforms, loc_image_shape, keypoint_hflip_indices=self.keypoint_hflip_indices
+                )
+                for obj in dataset_dict.pop("annotations")
+                if obj.get("iscrowd", 0) == 0
+            ]
+            instances = utils.annotations_to_instances(
+                annos, loc_image_shape, mask_format=self.mask_format
+            )
+            # Create a tight bounding box from masks, useful when image is cropped
+            if self.crop_gen and instances.has("gt_masks"):
+                instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
+            dataset_dict["instances"] = utils.filter_empty_instances(instances)
+
+        return dataset_dict
+
+    def do_sem_seg(self, dataset_dict, loc_transforms):
+        if "sem_seg_file_name" in dataset_dict:
+            with PathManager.open(dataset_dict.pop("sem_seg_file_name"), "rb") as loc_file:
+                sem_seg_gt = Image.open(loc_file)
+                sem_seg_gt = np.asarray(sem_seg_gt, dtype="uint8")
+            sem_seg_gt = loc_transforms.apply_segmentation(sem_seg_gt)
+            sem_seg_gt = torch.as_tensor(sem_seg_gt.astype("long"))
+            dataset_dict["sem_seg"] = sem_seg_gt
+
+        return dataset_dict
 
     def __call__(self, dataset_dict):
         """
@@ -521,43 +564,11 @@ class MyDatasetMapper(object):
             )
 
         if not self.is_train:
-            # USER: Modify this if you want to keep them for some reason.
-            dataset_dict.pop("annotations", None)
-            dataset_dict.pop("sem_seg_file_name", None)
-            return dataset_dict
+            return self.do_train(dataset_dict)
 
-        if "annotations" in dataset_dict:
-            # USER: Modify this if you want to keep them for some reason.
-            for anno in dataset_dict["annotations"]:
-                if not self.mask_on:
-                    anno.pop("segmentation", None)
-                if not self.keypoint_on:
-                    anno.pop("keypoints", None)
+        dataset_dict = self.do_annotations(dataset_dict, transforms, image_shape)
+        dataset_dict = self.do_sem_seg(dataset_dict, transforms)
 
-            # USER: Implement additional transformations if you have other types of data
-            annos = [
-                utils.transform_instance_annotations(
-                    obj, transforms, image_shape, keypoint_hflip_indices=self.keypoint_hflip_indices
-                )
-                for obj in dataset_dict.pop("annotations")
-                if obj.get("iscrowd", 0) == 0
-            ]
-            instances = utils.annotations_to_instances(
-                annos, image_shape, mask_format=self.mask_format
-            )
-            # Create a tight bounding box from masks, useful when image is cropped
-            if self.crop_gen and instances.has("gt_masks"):
-                instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
-            dataset_dict["instances"] = utils.filter_empty_instances(instances)
-
-        # USER: Remove if you don't do semantic/panoptic segmentation.
-        if "sem_seg_file_name" in dataset_dict:
-            with PathManager.open(dataset_dict.pop("sem_seg_file_name"), "rb") as f:
-                sem_seg_gt = Image.open(f)
-                sem_seg_gt = np.asarray(sem_seg_gt, dtype="uint8")
-            sem_seg_gt = transforms.apply_segmentation(sem_seg_gt)
-            sem_seg_gt = torch.as_tensor(sem_seg_gt.astype("long"))
-            dataset_dict["sem_seg"] = sem_seg_gt
         return dataset_dict
 
 
@@ -609,7 +620,7 @@ def build_transform_gen(cfg, is_train):
         # NEW: Rotation
         tfm_gens.append(RandomRot(deg_range=60))
 
-        logger.info("TransformGens used in training: " + str(tfm_gens))
+        logger.info("TransformGens used in training: %s", str(tfm_gens))
 
         print(tfm_gens)
 
@@ -628,13 +639,13 @@ def get_dataloader(cfg, is_train):
 # %% Evaluation:
 
 
-def eval_iou_dice(predictor, df, proposed=1, mode="test"):
+def eval_iou_dice(predictor, data_fr, proposed=1, mode="test"):
     """
     Calculate the IoU and Dice Score for the predictor on the <proposed number>
     """
-    d = [os.path.join("./PNG2", f"{f}.png") for f in df[F_KEY]]
+    file_list = [os.path.join("./PNG2", f"{f}.png") for f in data_fr[F_KEY]]
 
-    active_idx = get_active_idx(df, mode)
+    active_idx = get_active_idx(data_fr, mode)
 
     with open(f'{mode}.json', 'r') as f:
         true_data = json.load(f)
@@ -649,8 +660,8 @@ def eval_iou_dice(predictor, df, proposed=1, mode="test"):
 
     # go over all segmentations
     for i, idx in tqdm(enumerate(active_idx)):
-        im = cv2.imread(d[idx])
-        outputs = predictor(im)
+        img = cv2.imread(file_list[idx])
+        outputs = predictor(img)
         instances = outputs["instances"].to("cpu")[:proposed]
 
         # PREDICTION
@@ -692,12 +703,12 @@ def eval_iou_dice(predictor, df, proposed=1, mode="test"):
 
 def bb_iou_dice(boxa, boxb):
     """IoU and Dice for bbox"""
-    xa = max(boxa[0], boxb[0])
-    ya = max(boxa[1], boxb[1])
-    xb = min(boxa[2], boxb[0] + boxb[2])
-    yb = min(boxa[3], boxb[1] + boxb[3])
+    x_min = max(boxa[0], boxb[0])
+    y_min = max(boxa[1], boxb[1])
+    x_max = min(boxa[2], boxb[0] + boxb[2])
+    y_max = min(boxa[3], boxb[1] + boxb[3])
 
-    inter_area = (xb - xa) * (yb - ya)
+    inter_area = (x_max - x_min) * (y_max - y_min)
 
     boxa_area = (boxa[2]-boxa[0]) * (boxa[3] - boxa[1])
     boxb_area = boxb[2] * boxb[3]
@@ -723,14 +734,14 @@ def mask_iou_dice(maska, maskb):
     return iou, dice
 
 
-def personal_score_simple(predictor, df, active_idx, simple=False, imgpath="./PNG2", advanced=True):
+def personal_score_simple(predictor, data_fr, active_idx, simple=False, imgpath="./PNG2", advanced=True):
     """define the accuracy"""
 
     F_KEY = 'FileName (png)'
     CLASS_KEY = 'Aggressiv/Nicht-aggressiv'
 
     # get the actibe files
-    files = [os.path.join(imgpath, f"{f}.png") for f in df[F_KEY]]
+    files = [os.path.join(imgpath, f"{f}.png") for f in data_fr[F_KEY]]
 
     # counters during evaluation
     count = 0
@@ -750,8 +761,8 @@ def personal_score_simple(predictor, df, active_idx, simple=False, imgpath="./PN
 
         preds.append(pred)
 
-        # select the relevant name from the df
-        malignant = df[CLASS_KEY][idx]
+        # select the relevant name from the data_fr
+        malignant = data_fr[CLASS_KEY][idx]
 
         if malignant and pred <= 4:
             count += 1
