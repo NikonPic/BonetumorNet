@@ -445,23 +445,26 @@ def get_dicts_from_coco(imgdir="../PNG2", mode="train"):
     # finally return the list
     return dataset_dict
 
+
 def do_train(dataset_dict):
-        """provide dict in train mode"""
-        # USER: Modify this if you want to keep them for some reason.
-        dataset_dict.pop("annotations", None)
-        dataset_dict.pop("sem_seg_file_name", None)
-        return dataset_dict
+    """provide dict in train mode"""
+    # USER: Modify this if you want to keep them for some reason.
+    dataset_dict.pop("annotations", None)
+    dataset_dict.pop("sem_seg_file_name", None)
+    return dataset_dict
+
 
 def do_sem_seg(dataset_dict, loc_transforms):
-        if "sem_seg_file_name" in dataset_dict:
-            with PathManager.open(dataset_dict.pop("sem_seg_file_name"), "rb") as loc_file:
-                sem_seg_gt = Image.open(loc_file)
-                sem_seg_gt = np.asarray(sem_seg_gt, dtype="uint8")
-            sem_seg_gt = loc_transforms.apply_segmentation(sem_seg_gt)
-            sem_seg_gt = torch.as_tensor(sem_seg_gt.astype("long"))
-            dataset_dict["sem_seg"] = sem_seg_gt
+    if "sem_seg_file_name" in dataset_dict:
+        with PathManager.open(dataset_dict.pop("sem_seg_file_name"), "rb") as loc_file:
+            sem_seg_gt = Image.open(loc_file)
+            sem_seg_gt = np.asarray(sem_seg_gt, dtype="uint8")
+        sem_seg_gt = loc_transforms.apply_segmentation(sem_seg_gt)
+        sem_seg_gt = torch.as_tensor(sem_seg_gt.astype("long"))
+        dataset_dict["sem_seg"] = sem_seg_gt
 
-        return dataset_dict
+    return dataset_dict
+
 
 class MyDatasetMapper():
     """
@@ -527,17 +530,6 @@ class MyDatasetMapper():
             if self.crop_gen and instances.has("gt_masks"):
                 instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
             dataset_dict["instances"] = utils.filter_empty_instances(instances)
-
-        return dataset_dict
-
-    def do_sem_seg(self, dataset_dict, loc_transforms):
-        if "sem_seg_file_name" in dataset_dict:
-            with PathManager.open(dataset_dict.pop("sem_seg_file_name"), "rb") as loc_file:
-                sem_seg_gt = Image.open(loc_file)
-                sem_seg_gt = np.asarray(sem_seg_gt, dtype="uint8")
-            sem_seg_gt = loc_transforms.apply_segmentation(sem_seg_gt)
-            sem_seg_gt = torch.as_tensor(sem_seg_gt.astype("long"))
-            dataset_dict["sem_seg"] = sem_seg_gt
 
         return dataset_dict
 
