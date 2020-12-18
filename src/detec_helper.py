@@ -425,14 +425,14 @@ def print_iou_res(
         f'Dice BB: {round(np.mean(dice_all_bb), 2)} +/- {round(np.std(dice_all_bb), 2)}')
 
 
-def get_ci(acc, n=140, const=1.96, digits=3, printit=True):
+def get_ci(acc, num=140, const=1.96, digits=3, printit=True):
     """calculate confidence intervall"""
     acc = round(acc, digits)
     error = 1 - acc
     ci_low = round(
-        (1 - (error - const * np.sqrt((error * (1 - error)) / n))), digits) * 100
+        (1 - (error - const * np.sqrt((error * (1 - error)) / num))), digits) * 100
     ci_high = round(
-        (1 - (error + const * np.sqrt((error * (1 - error)) / n))), digits) * 100
+        (1 - (error + const * np.sqrt((error * (1 - error)) / num))), digits) * 100
     if printit:
         print(f'Acc: {acc*100}%, 95% CI: {ci_high}%, {ci_low}%)')
     return ci_high, ci_low
@@ -446,18 +446,18 @@ def print_confinfo(conf):
     fals_n = conf[1, 0]
 
     sens = round(true_p / (true_p + fals_n), 3)
-    sens_high, sens_low = get_ci(sens, n=true_p+fals_n, printit=False)
+    sens_high, sens_low = get_ci(sens, num=true_p+fals_n, printit=False)
     spec = round(true_n / (true_n + fals_p), 3)
-    spec_high, spec_low = get_ci(spec, n=true_n+fals_p, printit=False)
+    spec_high, spec_low = get_ci(spec, num=true_n+fals_p, printit=False)
     acc = round((true_n + true_p) / (true_n + fals_p + true_p + fals_n), 3)
-    acc_high, acc_low = get_ci(acc, n=true_n + fals_p + true_p + fals_n, printit=False)
+    acc_high, acc_low = get_ci(acc, num=true_n + fals_p + true_p + fals_n, printit=False)
 
     print(
-        f'sensitivity : {sens} ({true_p} of { (true_p + fals_n)}), 95% CI: {sens_high}% {sens_low}%')
+        f'sensitivity: {sens} ({true_p} of { (true_p + fals_n)}), 95% CI: {sens_high}% {sens_low}%')
     print(
-        f'specificity : {spec} ({true_n} of { (true_n + fals_p)}), 95% CI: {spec_high}% {spec_low}%')
+        f'specificity: {spec} ({true_n} of { (true_n + fals_p)}), 95% CI: {spec_high}% {spec_low}%')
     print(
-        f'accuracy : {acc} ({true_n + true_p} of { (true_n + fals_p + true_p + fals_n)}), 95% CI: {acc_high}% {acc_low}%')
+        f'acc : {acc} ({true_n + true_p} of { (true_n + fals_p + true_p + fals_n)}), 95% CI: {acc_high}% {acc_low}%')
 
 
 def evaluate(dset, predictor):

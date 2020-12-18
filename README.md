@@ -1,8 +1,4 @@
 # BonetumorNet
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/NikonPic/bonetumorseg/master?urlpath=voila%2Frender%2F01_segmenter.ipynb)
-![Code Grade](https://www.code-inspector.com/project/17089/status/svg) ![Code Grade](https://www.code-inspector.com/project/17089/score/svg)
-
-
 
 A Multitask Deep Learning Model for Simultaneous Detection, Segmentation and Classification of Bone Tumors on Radiographs
 
