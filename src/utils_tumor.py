@@ -251,18 +251,18 @@ def add_bb_2_csv(csv_path, seg_path, pic_path, fac=1, mode=False):
     """
     # open csv
     if mode:
-        data_fr = pd.read_excel(csv_path)
+        data_frame = pd.read_excel(csv_path)
     else:
-        data_fr = pd.read_csv(csv_path, header='infer', delimiter=';')
+        data_frame = pd.read_csv(csv_path, header='infer', delimiter=';')
 
-    len_data_fr = len(data_fr)
+    len_data_frame = len(data_frame)
 
     # predefine arrays
-    top, left, bottom, right = np.empty([len_data_fr]), np.empty(
-        [len_data_fr]), np.empty([len_data_fr]), np.empty([len_data_fr])
+    top, left, bottom, right = np.empty([len_data_frame]), np.empty(
+        [len_data_frame]), np.empty([len_data_frame]), np.empty([len_data_frame])
 
     # iterate trough the files:
-    for i, (file, _) in tqdm(enumerate(zip(data_fr[F_KEY], data_fr[CLASS_KEY]))):
+    for i, (file, _) in tqdm(enumerate(zip(data_frame[F_KEY], data_frame[CLASS_KEY]))):
 
         # paths:
         imfile = os.path.join(pic_path, f'{file}.png')
@@ -277,18 +277,18 @@ def add_bb_2_csv(csv_path, seg_path, pic_path, fac=1, mode=False):
             print(segfile)
 
     # add the bounding boxes to the dataframe
-    data_fr['top'] = top
-    data_fr['left'] = left
-    data_fr['bottom'] = bottom
-    data_fr['right'] = right
+    data_frame['top'] = top
+    data_frame['left'] = left
+    data_frame['bottom'] = bottom
+    data_frame['right'] = right
 
     # save to csv!
     if mode:
-        data_fr.to_excel(csv_path)
+        data_frame.to_excel(csv_path)
     else:
-        data_fr.to_csv(csv_path, sep=';', index=False)
+        data_frame.to_csv(csv_path, sep=';', index=False)
 
-    return data_fr
+    return data_frame
 
 
 def add_classes_to_csv(csv_path, mode=False):
@@ -348,7 +348,7 @@ def nrrd_2_bbox(nrrd_path, im_path,
     """
     generate a boundingbox from the nrrd file
     """
-    title='tumor'
+    title = 'tumor'
     # 1. open nrrd image:
     readdata, header = nrrd.read(nrrd_path)
     nrrd_img = np.transpose(readdata[:, :, 0] * 255)
@@ -382,7 +382,7 @@ def nrrd_2_bbox(nrrd_path, im_path,
     return int(top), int(left), int(bottom), int(right)
 
 
-def nrrd_2_mask(nrrd_path, im_path, title='tumor', nrrd_key='Segmentation_ReferenceImageExtentOffset', fac=20, as_array=False):
+def nrrd_2_mask(nrrd_path, im_path, nrrd_key='Segmentation_ReferenceImageExtentOffset', fac=20, as_array=False):
     """
     generate mask from the nrrd file
     """
@@ -416,12 +416,12 @@ def format_seg_names(name):
     return name
 
 
-def generate_masks(data_fr, nrrd_path, pic_path, mask_path, gen_rad=True):
+def generate_masks(data_frame, nrrd_path, pic_path, mask_path, gen_rad=True):
     """
     save all pictures in a masked version in the mask_folder
     """
 
-    for file in tqdm(data_fr[F_KEY]):
+    for file in tqdm(data_frame[F_KEY]):
         # get names
         pic_name = os.path.join(pic_path, f'{file}.png')
         file = format_seg_names(file)
@@ -482,15 +482,15 @@ def get_cocos_from_data_fr(data_fr, paths, save=True, seg=True, simple=True, new
     dis = get_advanced_dis_data_fr(data_fr, mode=ex_mode)
 
     # the list of coco dictionaries
-    cocos = []
+    cocos_loc = []
 
     for i, mode in enumerate(dis.keys()):
         # get the active indices
         indices = dis[mode]['idx']
 
         # make empty coco_dict
-        cocos.append(make_coco(data_fr, mode, indices, seg=seg, newmode=newmode,
-                               simple=simple, path=paths["pic"], path_nrd=paths["seg"]))
+        cocos_loc.append(make_coco(data_fr, mode, indices, seg=seg, newmode=newmode,
+                                   simple=simple, path=paths["pic"], path_nrd=paths["seg"]))
 
         if save:
             local_path = os.getcwd()
@@ -499,12 +499,12 @@ def get_cocos_from_data_fr(data_fr, paths, save=True, seg=True, simple=True, new
             save_file = f'{add}{mode}.json'
             print(f'Saving to: {save_file}')
             with open(save_file, 'w') as file_p:
-                json.dump(cocos[i], file_p, indent=2)
+                json.dump(cocos_loc[i], file_p, indent=2)
 
-    return cocos
+    return cocos_loc
 
 
-def make_coco(data_fr, mode, idxs,
+def make_coco(data_frame, mode, idxs,
               seg=False, path='../PNG2', path_nrd='../SEG', simple=True, newmode=0):
     # create the empty coco format
     coco, cat_mapping = make_empty_coco(mode, simple=simple)
@@ -513,7 +513,7 @@ def make_coco(data_fr, mode, idxs,
     for idx in idxs:
 
         # get the current object
-        obj = data_fr.iloc[idx]
+        obj = data_frame.iloc[idx]
 
         # get the filename
         file = obj[F_KEY]
@@ -648,7 +648,7 @@ def get_data_fr_paths(mode=False):
     name = f'{name}.xlsx' if mode else f'{name}.csv'
 
     # get all releevant paths
-    paths = {
+    paths_loc = {
         "csv": os.path.join(path, f'{add}{name}'),
         "pic": os.path.join(path, f'{add}{pic_folder}'),
         "seg": os.path.join(path, f'{add}{seg_folder}'),
@@ -659,25 +659,25 @@ def get_data_fr_paths(mode=False):
 
     # get data_fr
     if mode:
-        data_fr = pd.read_excel(paths["csv"])
+        data_fr = pd.read_excel(paths_loc["csv"])
     else:
-        data_fr = pd.read_csv(paths["csv"], header='infer', delimiter=';')
+        data_fr = pd.read_csv(paths_loc["csv"], header='infer', delimiter=';')
 
-    return data_fr, paths
+    return data_fr, paths_loc
 
 
-def regenerate_ex_names(paths, new_path='../PNG_external'):
-    """"""
+def regenerate_ex_names(paths_loc, new_path='../PNG_external'):
+    """redefine the external path names"""
     # append idlist
-    data_fr = pd.read_excel(paths["csv"])
-    idlist = np.array(list(range(1, len(data_fr)+1)))
+    data_fr_external = pd.read_excel(paths_loc["csv"])
+    idlist = np.array(list(range(1, len(data_fr_external)+1)))
     np.random.shuffle(idlist)
-    data_fr['id'] = idlist
-    data_fr.to_excel(paths["csv"])
+    data_fr_external['id'] = idlist
+    data_fr_external.to_excel(paths_loc["csv"])
 
-    data_fr = pd.read_excel(paths["csv"])
-    old_path = paths['pic']
-    for num, fname in zip(data_fr['id'], data_fr[F_KEY]):
+    data_fr_external = pd.read_excel(paths_loc["csv"])
+    old_path = paths_loc['pic']
+    for num, fname in zip(data_fr_external['id'], data_fr_external[F_KEY]):
         filename = f'{old_path}/{fname}.png'
         img = Image.open(filename)
         filename_new = f'{new_path}/{num}.png'
