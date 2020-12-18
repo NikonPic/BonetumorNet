@@ -328,17 +328,9 @@ def get_bb_from_mask(mask):
 
 def get_iou_masks(predictor, external=False):
     """Display the activations"""
-    mode = 'test'
     mask = True
     bbox = True
-
-    if mode == "test":
-        active_idx = test_idx
-    elif mode == "valid":
-        active_idx = valid_idx
-    else:
-        active_idx = train_idx
-
+    active_idx = test_idx
     d_loc = d
     add_str = 'normal'
     df_loc = df

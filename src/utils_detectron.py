@@ -414,8 +414,8 @@ def get_dicts_from_coco(imgdir="../PNG2", mode="train"):
 
     # load json
     json_file = f"../{mode}.json"
-    with open(json_file) as f:
-        coco_data = json.load(f)
+    with open(json_file) as file:
+        coco_data = json.load(file)
 
     # create the list of dictionaries
     dataset_dict = []
@@ -445,6 +445,23 @@ def get_dicts_from_coco(imgdir="../PNG2", mode="train"):
     # finally return the list
     return dataset_dict
 
+def do_train(dataset_dict):
+        """provide dict in train mode"""
+        # USER: Modify this if you want to keep them for some reason.
+        dataset_dict.pop("annotations", None)
+        dataset_dict.pop("sem_seg_file_name", None)
+        return dataset_dict
+
+def do_sem_seg(dataset_dict, loc_transforms):
+        if "sem_seg_file_name" in dataset_dict:
+            with PathManager.open(dataset_dict.pop("sem_seg_file_name"), "rb") as loc_file:
+                sem_seg_gt = Image.open(loc_file)
+                sem_seg_gt = np.asarray(sem_seg_gt, dtype="uint8")
+            sem_seg_gt = loc_transforms.apply_segmentation(sem_seg_gt)
+            sem_seg_gt = torch.as_tensor(sem_seg_gt.astype("long"))
+            dataset_dict["sem_seg"] = sem_seg_gt
+
+        return dataset_dict
 
 class MyDatasetMapper():
     """
@@ -484,13 +501,6 @@ class MyDatasetMapper():
                 else cfg.DATASETS.PRECOMPUTED_PROPOSAL_TOPK_TEST
             )
         self.is_train = is_train
-
-    def do_train(self, dataset_dict):
-        """provide dict in train mode"""
-        # USER: Modify this if you want to keep them for some reason.
-        dataset_dict.pop("annotations", None)
-        dataset_dict.pop("sem_seg_file_name", None)
-        return dataset_dict
 
     def do_annotations(self, dataset_dict, loc_transforms, loc_image_shape):
         """add annotations if required"""
@@ -579,11 +589,11 @@ class MyDatasetMapper():
             )
 
         if not self.is_train:
-            return self.do_train(dataset_dict)
+            return do_train(dataset_dict)
 
         dataset_dict = self.do_annotations(
             dataset_dict, transforms, image_shape)
-        dataset_dict = self.do_sem_seg(dataset_dict, transforms)
+        dataset_dict = do_sem_seg(dataset_dict, transforms)
 
         return dataset_dict
 
@@ -763,10 +773,10 @@ def personal_score_simple(predictor, data_fr, active_idx, imgpath="./PNG"):
     # Go over the whole dataset
     for idx in tqdm(active_idx):
         # load image
-        im = cv2.imread(files[idx])
+        img = cv2.imread(files[idx])
 
         with torch.no_grad():
-            outputs = predictor(im)
+            outputs = predictor(img)
 
             # get predicitions
             out = outputs["instances"].to("cpu")
