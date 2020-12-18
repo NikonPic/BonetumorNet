@@ -1,7 +1,5 @@
 # BonetumorNet
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/NikonPic/bonetumorseg/master?urlpath=voila%2Frender%2F01_segmenter.ipynb)
-![Code Grade](https://www.code-inspector.com/project/17089/status/svg) ![Code Grade](https://www.code-inspector.com/project/17089/score/svg)
-
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/NikonPic/bonetumorseg/master?urlpath=voila%2Frender%2F01_segmenter.ipynb) <img src="https://www.code-inspector.com/project/17089/status/svg?branch=master&kill_cache=1" /> <img src="https://www.code-inspector.com/project/17089/score/svg?branch=master&kill_cache=1" />
 A Multitask Deep Learning Model for Simultaneous Detection, Segmentation and Classification of Bone Tumors on Radiographs
 
  <img src="results\demo.gif" alt="Drawing" style="width: 500px;">
