@@ -46,26 +46,27 @@ def extract_local_info(loc_file):
 
 def print_confinfo(conf):
     """print all relevant infos for confidence intervalls"""
-    true_pos = conf[1, 1]
-    true_neg = conf[0, 0]
-    false_pos = conf[0, 1] + conf[0, 2]
-    false_neg = conf[1, 0] + conf[1, 2]
+    true_p = conf[1, 1]
+    true_n = conf[0, 0]
+    fals_p = conf[0, 1] + conf[0, 2]
+    fals_n = conf[1, 0] + conf[1, 2]
 
-    sens = round(true_pos / (true_pos + false_neg), 2)
-    sens_high, sens_low = get_ci(sens, n=true_pos+false_neg, printit=False)
-    spec = round(true_neg / (true_neg + false_pos), 2)
-    spec_high, spec_low = get_ci(spec, n=true_neg+false_pos, printit=False)
-    acc = round((true_neg + true_pos) / (true_neg +
-                                         false_pos + true_pos + false_neg), 3)
+    sens = round(true_p / (true_p + fals_n), 2)
+    sens_high, sens_low = get_ci(sens, num=true_p+fals_n, printit=False)
+    spec = round(true_n / (true_n + fals_p), 2)
+    spec_high, spec_low = get_ci(spec, num=true_n+fals_p, printit=False)
+    acc = round((true_n + true_p) / (true_n +
+                                     fals_p + true_p + fals_n), 3)
     acc_high, acc_low = get_ci(
-        acc, n=true_neg + false_pos + true_pos + false_neg, printit=False, digits=3)
+        acc, num=true_n + fals_p + true_p + fals_n, printit=False, digits=3)
 
     print(
-        f'sensitivity : {sens} ({true_pos} of { (true_pos + false_neg)}), 95% CI: {sens_high}% {sens_low}%')
+        f'sensitivity: {sens} ({true_p} of { (true_p + fals_n)}), 95% CI: {sens_high}% {sens_low}%')
     print(
-        f'specificity : {spec} ({true_neg} of { (true_neg + false_pos)}), 95% CI: {spec_high}% {spec_low}%')
+        f'specificity: {spec} ({true_n} of { (true_n + fals_p)}), 95% CI: {spec_high}% {spec_low}%')
     print(
-        f'accuracy : {acc} ({true_neg + true_pos} of { (true_neg + false_pos + true_pos + false_neg)}), 95% CI: {acc_high}% {acc_low}%')
+        f'accuracy: {acc} ({true_n + true_p} of { (true_n + fals_p + true_p + fals_n)}), 95% CI: {acc_high}% {acc_low}%')
+
 
 # %% read the dataframe
 df = pd.read_excel(F_XLSX)
@@ -128,14 +129,14 @@ for true_id, true_entity, true_workflow in zip(df[DF_ID], df[DF_ENT], df[DF_WORK
     workflow_true.append(true_workflow)
 
     pred_benmal = 2
-    if (pred_int in benign_int):
+    if pred_int in benign_int:
         pred_benmal = 0
 
-    if (pred_int in malign_int):
+    if pred_int in malign_int:
         pred_benmal = 1
 
     true_benmal = 0
-    if (true_int in malign_int):
+    if true_int in malign_int:
         true_benmal = 1
 
     benmal_pred.append(pred_benmal)
@@ -158,4 +159,4 @@ print_confinfo(benmal_conf)
 print(f'Entities: {round(100*score / 111, 3)}%')
 print(f'MalBen: {round(100*score2 / 111, 2)}%')
 print(f'Workflow: {round(100*score3 / 111, 2)}%')
-get_ci(score / 111, n=111, digits=4)
+get_ci(score / 111, num=111, digits=4)

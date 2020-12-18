@@ -659,11 +659,11 @@ def get_data_fr_paths(mode=False):
 
     # get data_fr
     if mode:
-        data_fr = pd.read_excel(paths_loc["csv"])
+        data_frame = pd.read_excel(paths_loc["csv"])
     else:
-        data_fr = pd.read_csv(paths_loc["csv"], header='infer', delimiter=';')
+        data_frame = pd.read_csv(paths_loc["csv"], header='infer', delimiter=';')
 
-    return data_fr, paths_loc
+    return data_frame, paths_loc
 
 
 def regenerate_ex_names(paths_loc, new_path='../PNG_external'):
