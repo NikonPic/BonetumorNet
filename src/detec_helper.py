@@ -18,10 +18,10 @@ from detectron2.data import MetadataCatalog
 from detectron2.utils.visualizer import Visualizer
 from detectron2.config import get_cfg
 
-from src.utils_tumor import format_seg_names, get_advanced_dis_data_fr
+from src.utils_tumor import format_seg_names, get_advanced_dis_data_fr, get_data_fr_paths
 from src.utils_detectron import F_KEY, CLASS_KEY, ENTITY_KEY
 import src.utils_detectron as ud
-from src.categories import make_cat_advanced, cat_mapping_new, cat_naming_new, reverse_cat_list
+from src.categories import cat_mapping_new, cat_naming_new, reverse_cat_list
 
 
 setup_logger()
@@ -32,8 +32,8 @@ print(detectron2.__version__)
 
 # %%
 # get the shuffled indexes
-df, paths = get_df_paths()
-df_ex, paths_ex = get_df_paths(mode=True)
+df, paths = get_data_fr_paths()
+df_ex, paths_ex = get_data_fr_paths(mode=True)
 dis = get_advanced_dis_data_fr(df)
 dis_ex = get_advanced_dis_data_fr(df_ex, mode=True)
 d = [os.path.join("./PNG2", f"{f}.png") for f in df[F_KEY]]
@@ -47,6 +47,7 @@ test_idx = dis["test"]["idx"]
 text_ex_idx = dis_ex["test_external"]
 
 # %%
+
 
 def get_mask_img(data_fr, data_fr_ex, idx, truelab='blue', external=False):
     """extract the segmented image and put it on the image"""
@@ -74,11 +75,34 @@ def get_mask_img(data_fr, data_fr_ex, idx, truelab='blue', external=False):
     return img, offset, img_mask
 
 
+def call_predictor(predictor, img):
+    """call the predictor without a grad operation"""
+    with torch.no_grad():
+        outputs = predictor(img)
+    return outputs
+
+
+def get_vis(outputs, img, scale, bbox, score, mask, proposed=1):
+    """build the visualizer"""
+    vis = Visualizer(
+        img[:, :, ::-1],
+        metadata=MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
+        scale=scale,
+        instance_mode=ColorMode.SEGMENTATION,
+    )
+    instances = outputs["instances"].to("cpu")[:proposed]
+    instances.pred_boxes = [[0, 0, 0, 0]] if not bbox else instances.pred_boxes
+    instances.remove("scores") if not score else None
+    instances.remove("pred_masks") if not mask else None
+
+    vis = vis.draw_instance_predictions(instances)
+    return vis
+
+
 def update(
-    idx=1, bbox=True, mask=True, score=True, scale=1, true_label=True
+    predictor, idx=1, bbox=True, mask=True, score=True, scale=1, true_label=True
 ):
     """Display the activations"""
-    proposed = 1
     mode = 'test'
 
     if mode == "test":
@@ -88,35 +112,21 @@ def update(
     else:
         active_idx = train_idx
 
-    im = cv2.imread(d[active_idx[idx]])
+    img = cv2.imread(d[active_idx[idx]])
 
-    with torch.no_grad():
-        outputs = predictor(im)
+    outputs = call_predictor(predictor, img)
+    vis = get_vis(outputs, img, scale, bbox, score, mask)
 
-    v = Visualizer(
-        im[:, :, ::-1],
-        metadata=MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
-        scale=scale,
-        instance_mode=ColorMode.SEGMENTATION,
-    )
-    instances = outputs["instances"].to("cpu")[:proposed]
-    instances.remove("pred_masks") if not mask else None
-    instances.pred_boxes = [[0, 0, 0, 0]] if not bbox else instances.pred_boxes
-    instances.remove("scores") if not score else None
-
-    v = v.draw_instance_predictions(instances)
     plt.figure(figsize=(8, 8))
-
     if df[CLASS_KEY][active_idx[idx]] == 1:
         labelcol = 'blue'
     else:
         labelcol = 'red'
-
-    im, offset, im_mask = get_mask_img(
+    img, offset, im_mask = get_mask_img(
         df, df_ex, idx=active_idx[idx], truelab=labelcol)
 
-    back_img = Image.fromarray(v.get_image()[:, :, ::-1])
-    back_img.paste(im, offset, im_mask) if true_label else None
+    back_img = Image.fromarray(vis.get_image()[:, :, ::-1])
+    back_img.paste(img, offset, im_mask) if true_label else None
     back_img = np.array(back_img)
     Image.fromarray(back_img).show()
 
@@ -134,9 +144,9 @@ def plot_thresh_iou(ious):
     thresh = np.linspace(start=0, stop=1, num=100)
 
     res = []
-    for th in thresh:
+    for th_loc in thresh:
         res.append(
-            sum([True if iou > th else False for iou in ious]) / len(ious))
+            sum([True if iou > th_loc else False for iou in ious]) / len(ious))
 
     plt.figure(figsize=(12, 12))
     plt.grid(0.25)
@@ -145,9 +155,8 @@ def plot_thresh_iou(ious):
     plt.ylabel("Accuracy")
 
 
-def generate_all_images(external=False):
+def generate_all_images(predictor, external=False):
     """Display the activations"""
-    proposed = 1
     mode = 'test'
     scale = 1
     mask = True
@@ -173,27 +182,14 @@ def generate_all_images(external=False):
         add_str = 'external'
 
     for idx, _ in tqdm(enumerate(active_idx)):
-        im = cv2.imread(d_loc[active_idx[idx]])
-        im_org = Image.fromarray(im)
+        img = cv2.imread(d_loc[active_idx[idx]])
+        im_org = Image.fromarray(img)
         pngname = df_loc[F_KEY][active_idx[idx]]
         im_org.save(f'./res/{add_str}/{pngname}.png')
 
-        with torch.no_grad():
-            outputs = predictor(im)
+        outputs = call_predictor(predictor, img)
 
-        v = Visualizer(
-            im[:, :, ::-1],
-            metadata=MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
-            scale=scale,
-            instance_mode=ColorMode.SEGMENTATION,
-        )
-        instances = outputs["instances"].to("cpu")[:proposed]
-        instances.remove("pred_masks") if not mask else None
-        instances.pred_boxes = [[0, 0, 0, 0]
-                                ] if not bbox else instances.pred_boxes
-        instances.remove("scores") if not score else None
-
-        v = v.draw_instance_predictions(instances)
+        vis = get_vis(outputs, img, scale, bbox, score, mask)
         plt.figure(figsize=(8, 8))
 
         if df_loc[CLASS_KEY][active_idx[idx]] == 1:
@@ -201,18 +197,18 @@ def generate_all_images(external=False):
         else:
             labelcol = 'blue'
 
-        im, offset, im_mask = get_mask_img(
+        img, offset, im_mask = get_mask_img(
             df, df_ex, idx=active_idx[idx], truelab=labelcol, external=external)
 
-        back_img = Image.fromarray(v.get_image()[:, :, ::-1])
-        back_img.paste(im, offset, im_mask)
+        back_img = Image.fromarray(vis.get_image()[:, :, ::-1])
+        back_img.paste(img, offset, im_mask)
         back_img = np.array(back_img)
         img = Image.fromarray(back_img)
 
         img.save(f'./res/{add_str}/{pngname}_annotated.png')
 
 
-def personal_advanced_score(predictor, df, mode="test", simple=False, imgpath="./PNG2", advanced=True):
+def personal_advanced_score(predictor, df, imgpath="./PNG"):
     """define the accuracy"""
     # get the dataset distribution
     active_idx = test_idx
@@ -238,12 +234,11 @@ def personal_advanced_score(predictor, df, mode="test", simple=False, imgpath=".
         for idx in tqdm(active_idx):
 
             # load image
-            im = cv2.imread(files[idx])
+            img = cv2.imread(files[idx])
 
             # get predicitions
-            with torch.no_grad():
-                outputs = predictor(im)
-                out = outputs["instances"].to("cpu")
+            outputs = call_predictor(predictor, img)
+            out = outputs["instances"].to("cpu")
             pred_entity_int = out[:1].pred_classes[0]
             pred_entity_str = reverse_cat_list[pred_entity_int]
 
@@ -271,9 +266,9 @@ def personal_advanced_score(predictor, df, mode="test", simple=False, imgpath=".
     return res
 
 
-def make_bool(x):
+def make_bool(x_var):
     """turn an array of ints into array of bool"""
-    if x > 0:
+    if x_var > 0:
         return True
     return False
 
@@ -281,8 +276,8 @@ def make_bool(x):
 vfunc = np.vectorize(make_bool)
 
 
-def make_1(x):
-    if x:
+def make_1(x_var):
+    if x_var:
         return 1
     return 0
 
@@ -307,20 +302,20 @@ def compare_masks(mask1, mask2):
 def get_bb_from_mask(mask):
     """take max and min from mask in x and y direction"""
     mask_bb = mask.copy()
-    sh = mask.shape
-    min_y = sh[0]
+    shape = mask.shape
+    min_y = shape[0]
     max_y = 0
 
-    min_x = sh[1]
+    min_x = shape[1]
     max_x = 0
 
-    for row in range(sh[0]):
+    for row in range(shape[0]):
         if True in mask[row, :]:
             max_y = row
             if row < min_y:
                 min_y = row
 
-    for column in range(sh[1]):
+    for column in range(shape[1]):
         if True in mask[:, column]:
             max_x = column
             if column < min_x:
@@ -334,7 +329,6 @@ def get_bb_from_mask(mask):
 def get_iou_masks(predictor, external=False):
     """Display the activations"""
     mode = 'test'
-    scale = 1
     mask = True
     bbox = True
 
@@ -363,27 +357,18 @@ def get_iou_masks(predictor, external=False):
         add_str = 'external_1'
 
     for idx, _ in tqdm(enumerate(active_idx)):
-        im = cv2.imread(d_loc[active_idx[idx]])
-        im_org = Image.fromarray(im)
+        img = cv2.imread(d_loc[active_idx[idx]])
+        im_org = Image.fromarray(img)
         pngname = df_loc[F_KEY][active_idx[idx]]
         im_org.save(f'./res/{add_str}/{pngname}.png')
 
-        with torch.no_grad():
-            outputs = predictor(im)
+        outputs = call_predictor(predictor, img)
+        vis = get_vis(outputs, img, 1, bbox, 1, mask)
 
-            vis = Visualizer(
-                im[:, :, ::-1],
-                metadata=MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
-                scale=scale,
-                instance_mode=ColorMode.SEGMENTATION,
-            )
-
-            instances = outputs["instances"].to("cpu")[:1]
-            instances.remove("pred_masks") if not mask else None
-            instances.pred_boxes = [[0, 0, 0, 0]
-                                    ] if not bbox else instances.pred_boxes
-
-        vis = vis.draw_instance_predictions(instances)
+        instances = outputs["instances"].to("cpu")[:1]
+        instances.remove("pred_masks") if not mask else None
+        instances.pred_boxes = [[0, 0, 0, 0]
+                                ] if not bbox else instances.pred_boxes
 
         mask_pred = instances.pred_masks[0].numpy()
         mask_pred_bb = get_bb_from_mask(mask_pred)
@@ -391,11 +376,11 @@ def get_iou_masks(predictor, external=False):
         mask_pred = vfunc1(mask_pred)
         mask_pred_bb = vfunc1(mask_pred_bb)
 
-        im, offset, im_mask = get_mask_img(
+        img, offset, im_mask = get_mask_img(
             df, df_ex, idx=active_idx[idx], truelab='red', external=external)
 
         back_img = Image.fromarray(vis.get_image()[:, :, ::-1] * 0)
-        back_img.paste(im, offset, im_mask)
+        back_img.paste(img, offset, im_mask)
         back_img = np.array(back_img)
 
         mask_true = vfunc(back_img[:, :, 0])
@@ -416,6 +401,14 @@ def get_iou_masks(predictor, external=False):
     corr_mask = sum([1 if iou > 0.5 else 0 for iou in iou_all_mask])
     corr_bb = sum([1 if iou > 0.5 else 0 for iou in iou_all_bb])
 
+    print_iou_res(corr_mask, corr_bb, iou_all_mask, dice_all_mask,
+                  iou_all_bb, dice_all_bb, external)
+
+    return iou_all_mask, dice_all_mask, iou_all_bb, dice_all_bb
+
+
+def print_iou_res(
+        corr_mask, corr_bb, iou_all_mask, dice_all_mask, iou_all_bb, dice_all_bb, external):
     p_mode = 'External' if external else 'Internal'
     print(f'Mode: {p_mode}')
     print(f'Corr Masks: {corr_mask}, {round(corr_mask/len(iou_all_mask), 2)}')
@@ -430,8 +423,6 @@ def get_iou_masks(predictor, external=False):
         f'Iou  BB: {round(np.mean(iou_all_bb), 2)} +/- {round(np.std(iou_all_bb), 2)}')
     print(
         f'Dice BB: {round(np.mean(dice_all_bb), 2)} +/- {round(np.std(dice_all_bb), 2)}')
-
-    return iou_all_mask, dice_all_mask, iou_all_bb, dice_all_bb
 
 
 def get_ci(acc, n=140, const=1.96, digits=3, printit=True):
@@ -449,24 +440,24 @@ def get_ci(acc, n=140, const=1.96, digits=3, printit=True):
 
 def print_confinfo(conf):
     """print all relevant infos for confidence intervalls"""
-    tp = conf[1, 1]
-    tn = conf[0, 0]
-    fp = conf[0, 1]
-    fn = conf[1, 0]
+    true_p = conf[1, 1]
+    true_n = conf[0, 0]
+    fals_p = conf[0, 1]
+    fals_n = conf[1, 0]
 
-    sens = round(tp / (tp + fn), 3)
-    sens_high, sens_low = get_ci(sens, n=tp+fn, printit=False)
-    spec = round(tn / (tn + fp), 3)
-    spec_high, spec_low = get_ci(spec, n=tn+fp, printit=False)
-    acc = round((tn + tp) / (tn + fp + tp + fn), 3)
-    acc_high, acc_low = get_ci(acc, n=tn + fp + tp + fn, printit=False)
+    sens = round(true_p / (true_p + fals_n), 3)
+    sens_high, sens_low = get_ci(sens, n=true_p+fals_n, printit=False)
+    spec = round(true_n / (true_n + fals_p), 3)
+    spec_high, spec_low = get_ci(spec, n=true_n+fals_p, printit=False)
+    acc = round((true_n + true_p) / (true_n + fals_p + true_p + fals_n), 3)
+    acc_high, acc_low = get_ci(acc, n=true_n + fals_p + true_p + fals_n, printit=False)
 
     print(
-        f'sensitivity : {sens} ({tp} of { (tp + fn)}), 95% CI: {sens_high}% {sens_low}%')
+        f'sensitivity : {sens} ({true_p} of { (true_p + fals_n)}), 95% CI: {sens_high}% {sens_low}%')
     print(
-        f'specificity : {spec} ({tn} of { (tn + fp)}), 95% CI: {spec_high}% {spec_low}%')
+        f'specificity : {spec} ({true_n} of { (true_n + fals_p)}), 95% CI: {spec_high}% {spec_low}%')
     print(
-        f'accuracy : {acc} ({tn + tp} of { (tn + fp + tp + fn)}), 95% CI: {acc_high}% {acc_low}%')
+        f'accuracy : {acc} ({true_n + true_p} of { (true_n + fals_p + true_p + fals_n)}), 95% CI: {acc_high}% {acc_low}%')
 
 
 def evaluate(dset, predictor):
@@ -479,10 +470,10 @@ def evaluate(dset, predictor):
     return res
 
 
-def print_iou_dice_scores(predictor, df):
+def print_iou_dice_scores(predictor, data_fr):
     """print the dice scores and iou results"""
     ious_box, dices_box, ious_mask, dices_mask = ud.eval_iou_dice(
-        predictor, df, proposed=1, mode="test")
+        predictor, data_fr, proposed=1, mode="test")
     print('BBOX:')
     print(f'IoU: {np.mean(ious_box)} +/- {np.std(ious_box)}')
     print(f'Dice: {np.mean(dices_box)} +/- {np.std(dices_box)}\n')
