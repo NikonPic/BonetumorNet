@@ -250,7 +250,27 @@ def auroc_helper(out, pred, entity, targets2, preds2, count2, pred_score):
     return count2
 
 
-def personal_score(predictor, data_fr, mode="test", simple=True, imgpath="./PNG2", advanced=True, external=False):
+def check_if_correct(pred_int, true_int):
+    """outsourced checking func"""
+    loc = 0
+    if (pred_int in malign_int) and (true_int in malign_int):
+        loc += 1
+    if (pred_int in benign_int) and (true_int in benign_int):
+        loc += 1
+    return loc
+
+
+def get_cla_map(simple, entity, true_int, cat_mapping, malignant):
+    """define the class mapping"""
+    # get the mapped integer
+    cla = cat_mapping[malignant] if simple else cat_mapping[entity]
+    if simple:
+        cla = 1 if true_int in malign_int else 0
+
+    return cla
+
+
+def personal_score(predictor, data_fr, mode="test", simple=True, imgpath="./PNG2", external=False):
     """define the accuracy"""
     # get the dataset distribution
     active_idx = get_active_idx(data_fr, mode, external=external)
@@ -296,16 +316,10 @@ def personal_score(predictor, data_fr, mode="test", simple=True, imgpath="./PNG2
 
         pred_int = pred
         true_int = cat_mapping_new[entity][0]
-
-        if (pred_int in malign_int) and (true_int in malign_int):
-            count2 += 1
-        if (pred_int in benign_int) and (true_int in benign_int):
-            count2 += 1
+        count2 += check_if_correct(pred_int, true_int)
 
         # get the mapped integer
-        cla = cat_mapping[malignant] if simple else cat_mapping[entity]
-        if simple:
-            cla = 1 if true_int in malign_int else 0
+        cla = get_cla_map(simple, entity, true_int, cat_mapping, malignant)
         targets.append(cla)
         # increase count if true
         count += 1 if cla == pred else 0
@@ -361,7 +375,8 @@ def plot_confusion_matrix(
         plt.yticks(tick_marks, target_names, fontsize=font)
 
     if normalize:
-        conf_mat = conf_mat.astype("float") / conf_mat.sum(axis=1)[:, np.newaxis]
+        conf_mat = conf_mat.astype(
+            "float") / conf_mat.sum(axis=1)[:, np.newaxis]
 
     thresh = conf_mat.max() / 1.5 if normalize else conf_mat.max() / 2
     for i, j in itertools.product(range(conf_mat.shape[0]), range(conf_mat.shape[1])):
@@ -566,7 +581,8 @@ class MyDatasetMapper():
         if not self.is_train:
             return self.do_train(dataset_dict)
 
-        dataset_dict = self.do_annotations(dataset_dict, transforms, image_shape)
+        dataset_dict = self.do_annotations(
+            dataset_dict, transforms, image_shape)
         dataset_dict = self.do_sem_seg(dataset_dict, transforms)
 
         return dataset_dict
@@ -647,8 +663,8 @@ def eval_iou_dice(predictor, data_fr, proposed=1, mode="test"):
 
     active_idx = get_active_idx(data_fr, mode)
 
-    with open(f'{mode}.json', 'r') as f:
-        true_data = json.load(f)
+    with open(f'{mode}.json', 'r') as file:
+        true_data = json.load(file)
 
     coco = COCO(f'{mode}.json')
 
@@ -734,11 +750,8 @@ def mask_iou_dice(maska, maskb):
     return iou, dice
 
 
-def personal_score_simple(predictor, data_fr, active_idx, simple=False, imgpath="./PNG2", advanced=True):
+def personal_score_simple(predictor, data_fr, active_idx, imgpath="./PNG"):
     """define the accuracy"""
-
-    F_KEY = 'FileName (png)'
-    CLASS_KEY = 'Aggressiv/Nicht-aggressiv'
 
     # get the actibe files
     files = [os.path.join(imgpath, f"{f}.png") for f in data_fr[F_KEY]]

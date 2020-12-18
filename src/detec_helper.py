@@ -18,7 +18,7 @@ from detectron2.data import MetadataCatalog
 from detectron2.utils.visualizer import Visualizer
 from detectron2.config import get_cfg
 
-from src.utils_tumor import format_seg_names
+from src.utils_tumor import format_seg_names, get_advanced_dis_data_fr
 from src.utils_detectron import F_KEY, CLASS_KEY, ENTITY_KEY
 import src.utils_detectron as ud
 from src.categories import make_cat_advanced, cat_mapping_new, cat_naming_new, reverse_cat_list
@@ -30,10 +30,27 @@ print(detectron2.__version__)
 
 #  function definitions for training and evaluation
 
+# %%
+# get the shuffled indexes
+df, paths = get_df_paths()
+df_ex, paths_ex = get_df_paths(mode=True)
+dis = get_advanced_dis_data_fr(df)
+dis_ex = get_advanced_dis_data_fr(df_ex, mode=True)
+d = [os.path.join("./PNG2", f"{f}.png") for f in df[F_KEY]]
+d_ex = [os.path.join("./PNG_external", f"{f}.png")
+        for f in df_ex['id']]
+
+# get the active indexes for each dataset
+train_idx = dis["train"]["idx"]
+valid_idx = dis["valid"]["idx"]
+test_idx = dis["test"]["idx"]
+text_ex_idx = dis_ex["test_external"]
+
+# %%
 
 def get_mask_img(data_fr, data_fr_ex, idx, truelab='blue', external=False):
     """extract the segmented image and put it on the image"""
-    df_loc = df
+    df_loc = data_fr
     segpath_loc = './SEG'
 
     if external:
@@ -96,7 +113,7 @@ def update(
         labelcol = 'red'
 
     im, offset, im_mask = get_mask_img(
-        df, idx=active_idx[idx], truelab=labelcol)
+        df, df_ex, idx=active_idx[idx], truelab=labelcol)
 
     back_img = Image.fromarray(v.get_image()[:, :, ::-1])
     back_img.paste(im, offset, im_mask) if true_label else None
@@ -119,7 +136,7 @@ def plot_thresh_iou(ious):
     res = []
     for th in thresh:
         res.append(
-            sum([True if iou > th else False for iou in ioUs_box]) / len(ioUs_box))
+            sum([True if iou > th else False for iou in ious]) / len(ious))
 
     plt.figure(figsize=(12, 12))
     plt.grid(0.25)
@@ -185,7 +202,7 @@ def generate_all_images(external=False):
             labelcol = 'blue'
 
         im, offset, im_mask = get_mask_img(
-            df, idx=active_idx[idx], truelab=labelcol, external=external)
+            df, df_ex, idx=active_idx[idx], truelab=labelcol, external=external)
 
         back_img = Image.fromarray(v.get_image()[:, :, ::-1])
         back_img.paste(im, offset, im_mask)
@@ -202,9 +219,6 @@ def personal_advanced_score(predictor, df, mode="test", simple=False, imgpath=".
 
     # get the actibe files
     files = [os.path.join(imgpath, f"{f}.png") for f in df[F_KEY]]
-
-    # apply the category mapping dep. on simple-mode
-    _, cat_mapping = make_cat_advanced(simple)
 
     res = {}
 
@@ -317,7 +331,7 @@ def get_bb_from_mask(mask):
     return mask_bb
 
 
-def get_iou_masks(external=False):
+def get_iou_masks(predictor, external=False):
     """Display the activations"""
     mode = 'test'
     scale = 1
@@ -348,7 +362,7 @@ def get_iou_masks(external=False):
 
         add_str = 'external_1'
 
-    for idx, i in tqdm(enumerate(active_idx)):
+    for idx, _ in tqdm(enumerate(active_idx)):
         im = cv2.imread(d_loc[active_idx[idx]])
         im_org = Image.fromarray(im)
         pngname = df_loc[F_KEY][active_idx[idx]]
@@ -357,7 +371,7 @@ def get_iou_masks(external=False):
         with torch.no_grad():
             outputs = predictor(im)
 
-            v = Visualizer(
+            vis = Visualizer(
                 im[:, :, ::-1],
                 metadata=MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
                 scale=scale,
@@ -369,7 +383,7 @@ def get_iou_masks(external=False):
             instances.pred_boxes = [[0, 0, 0, 0]
                                     ] if not bbox else instances.pred_boxes
 
-        v = v.draw_instance_predictions(instances)
+        vis = vis.draw_instance_predictions(instances)
 
         mask_pred = instances.pred_masks[0].numpy()
         mask_pred_bb = get_bb_from_mask(mask_pred)
@@ -380,7 +394,7 @@ def get_iou_masks(external=False):
         im, offset, im_mask = get_mask_img(
             df, df_ex, idx=active_idx[idx], truelab='red', external=external)
 
-        back_img = Image.fromarray(v.get_image()[:, :, ::-1] * 0)
+        back_img = Image.fromarray(vis.get_image()[:, :, ::-1] * 0)
         back_img.paste(im, offset, im_mask)
         back_img = np.array(back_img)
 
@@ -467,12 +481,12 @@ def evaluate(dset, predictor):
 
 def print_iou_dice_scores(predictor, df):
     """print the dice scores and iou results"""
-    ioUs_box, dices_box, ioUs_mask, dices_mask = ud.eval_iou_dice(
+    ious_box, dices_box, ious_mask, dices_mask = ud.eval_iou_dice(
         predictor, df, proposed=1, mode="test")
     print('BBOX:')
-    print(f'IoU: {np.mean(ioUs_box)} +/- {np.std(ioUs_box)}')
+    print(f'IoU: {np.mean(ious_box)} +/- {np.std(ious_box)}')
     print(f'Dice: {np.mean(dices_box)} +/- {np.std(dices_box)}\n')
 
     print('SEG:')
-    print(f'IoU: {np.mean(ioUs_mask)} +/- {np.std(ioUs_mask)}')
+    print(f'IoU: {np.mean(ious_mask)} +/- {np.std(ious_mask)}')
     print(f'Dice: {np.mean(dices_mask)} +/- {np.std(dices_mask)}')
