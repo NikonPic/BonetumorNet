@@ -10,7 +10,7 @@ termcolor
 yacs
 tabulate
 cloudpickle
-Pillow==7.2.0
+Pillow
 future
 requests
 six
