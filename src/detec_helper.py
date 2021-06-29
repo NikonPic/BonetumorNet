@@ -1,4 +1,11 @@
 # %%
+#
+#  detec_helper.py
+#  BonetumorNet
+#
+#  Created by Nikolas Wilhelm on 2020-11-20.
+#  Copyright © 2020 Nikolas Wilhelm. All rights reserved.
+#
 import os
 import numpy as np
 from PIL import Image, ImageOps
@@ -442,7 +449,8 @@ def print_confinfo(conf):
     spec = round(true_n / (true_n + fals_p), 3)
     spec_high, spec_low = get_ci(spec, num=true_n+fals_p, printit=False)
     acc = round((true_n + true_p) / (true_n + fals_p + true_p + fals_n), 3)
-    acc_high, acc_low = get_ci(acc, num=true_n + fals_p + true_p + fals_n, printit=False)
+    acc_high, acc_low = get_ci(
+        acc, num=true_n + fals_p + true_p + fals_n, printit=False)
 
     print(
         f'sensitivity: {sens} ({true_p} of { (true_p + fals_n)}), 95% CI: {sens_high}% {sens_low}%')

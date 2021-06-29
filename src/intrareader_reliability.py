@@ -1,4 +1,11 @@
-# %% Intrareader reliability
+# %%
+#
+#  intrareader_reliability.py
+#  BonetumorNet
+#
+#  Created by Nikolas Wilhelm on 2020-11-01.
+#  Copyright © 2020 Nikolas Wilhelm. All rights reserved.
+#
 import os
 import nrrd
 import numpy as np
@@ -35,15 +42,18 @@ def get_nrrd_mask(filename, img_path, nrrd_path, fac=15, nrrd_key='Segmentation_
 
     return np.array(mask)[:, :, 0]
 
+
 def make_bool(x_var):
     if x_var > 0:
         return True
     return False
 
+
 def make_1(x_var):
     if x_var:
         return 1
     return 0
+
 
 vfunc = np.vectorize(make_bool)
 vfunc1 = np.vectorize(make_1)
@@ -83,14 +93,18 @@ for seg in tqdm(comp2_seg):
 
 
 # %%
-iou_mean, iou_std = np.array(ious_mask).mean().round(decimals=2), np.array(ious_mask).std().round(decimals=3)
-dice_mean, dice_std = np.array(dice_scores_mask).mean().round(decimals=2), np.array(dice_scores_mask).std().round(decimals=2)
+iou_mean, iou_std = np.array(ious_mask).mean().round(
+    decimals=2), np.array(ious_mask).std().round(decimals=3)
+dice_mean, dice_std = np.array(dice_scores_mask).mean().round(
+    decimals=2), np.array(dice_scores_mask).std().round(decimals=2)
 print(f'IOU MASK: {iou_mean} +/- {iou_std}')
 print(f'DICE MASK: {dice_mean} +/- {dice_std}')
 
 
-iou_mean, iou_std = np.array(ious_mask).mean().round(decimals=2), np.array(ious_mask).std().round(decimals=2)
-dice_mean, dice_std = np.array(dice_scores_mask).mean().round(decimals=2), np.array(dice_scores_mask).std().round(decimals=2)
+iou_mean, iou_std = np.array(ious_mask).mean().round(
+    decimals=2), np.array(ious_mask).std().round(decimals=2)
+dice_mean, dice_std = np.array(dice_scores_mask).mean().round(
+    decimals=2), np.array(dice_scores_mask).std().round(decimals=2)
 print(f'IOU BB: {iou_mean} +/- {iou_std}')
 print(f'DICE BB: {dice_mean} +/- {dice_std}')
 # %%

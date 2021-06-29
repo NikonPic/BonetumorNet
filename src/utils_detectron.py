@@ -1,4 +1,12 @@
 # %%
+#
+#  utils_detectron.py
+#  BonetumorNet
+#
+#  Created by Nikolas Wilhelm on 2020-08-01.
+#  Copyright © 2020 Nikolas Wilhelm. All rights reserved.
+#
+
 # define some useful functionalities for detectron2
 import os
 import json

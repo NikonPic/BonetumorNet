@@ -1,4 +1,11 @@
 # %%
+#
+#  categories.py
+#  BonetumorNet
+#
+#  Created by Nikolas Wilhelm on 2020-06-10.
+#  Copyright © 2020 Nikolas Wilhelm. All rights reserved.
+#
 def make_cat(simple=True):
     """fill the categories manually"""
     if simple:
@@ -52,6 +59,7 @@ def make_cat(simple=True):
     }
     return cat_list, cat_mapping
 
+
 def get_cat_list(simple):
     if simple:
         cat_list = [
@@ -66,90 +74,91 @@ def get_cat_list(simple):
         ]
     else:
         cat_list = [
-        # malignant first
-        {
-            "supercategory": "Malignant",
-            "id": 1,
-            "name": "Chondrosarcoma",
-        },
-        {
-            "supercategory": "Malignant",
-            "id": 2,
-            "name": "Osteosarcoma",
-        },
-        {
-            "supercategory": "Malignant",
-            "id": 3,
-            "name": "Ewing sarcoma",
-        },
-        {
-            "supercategory": "Malignant",
-            "id": 4,
-            "name": "Plasma cell myeloma",
-        },
-        {
-            "supercategory": "Malignant",
-            "id": 5,
-            "name": "NHL B Cell",
-        },
-        # now benign
-        {
-            "supercategory": "Benign",
-            "id": 6,
-            "name": "Osteochondroma",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 7,
-            "name": "Enchondroma",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 8,
-            "name": "Chondroblastoma",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 9,
-            "name": "Osteoid osteoma",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 10,
-            "name": "Non-ossifying fibroma",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 11,
-            "name": "Giant cell tumour of bone",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 12,
-            "name": "Chordoma",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 13,
-            "name": "Haemangioma",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 14,
-            "name": "Aneurysmal bone cyst",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 15,
-            "name": "Simple bone cyst",
-        },
-        {
-            "supercategory": "Benign",
-            "id": 16,
-            "name": "Fibrous dysplasia",
-        },
-    ]
+            # malignant first
+            {
+                "supercategory": "Malignant",
+                "id": 1,
+                "name": "Chondrosarcoma",
+            },
+            {
+                "supercategory": "Malignant",
+                "id": 2,
+                "name": "Osteosarcoma",
+            },
+            {
+                "supercategory": "Malignant",
+                "id": 3,
+                "name": "Ewing sarcoma",
+            },
+            {
+                "supercategory": "Malignant",
+                "id": 4,
+                "name": "Plasma cell myeloma",
+            },
+            {
+                "supercategory": "Malignant",
+                "id": 5,
+                "name": "NHL B Cell",
+            },
+            # now benign
+            {
+                "supercategory": "Benign",
+                "id": 6,
+                "name": "Osteochondroma",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 7,
+                "name": "Enchondroma",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 8,
+                "name": "Chondroblastoma",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 9,
+                "name": "Osteoid osteoma",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 10,
+                "name": "Non-ossifying fibroma",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 11,
+                "name": "Giant cell tumour of bone",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 12,
+                "name": "Chordoma",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 13,
+                "name": "Haemangioma",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 14,
+                "name": "Aneurysmal bone cyst",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 15,
+                "name": "Simple bone cyst",
+            },
+            {
+                "supercategory": "Benign",
+                "id": 16,
+                "name": "Fibrous dysplasia",
+            },
+        ]
     return cat_list
+
 
 def make_cat_advanced(simple=True, yolo=False):
     """fill the categories manually"""
@@ -157,7 +166,7 @@ def make_cat_advanced(simple=True, yolo=False):
     if simple:
         if yolo:
             cat_mapping = {
-                "benign" : 0,
+                "benign": 0,
                 "malign": 1,
             }
         else:
@@ -211,7 +220,6 @@ cat_mapping_new = {
 }
 
 
-
 reverse_cat_list = [
     "Chondrosarkom",
     "Osteosarkom",
@@ -232,38 +240,37 @@ reverse_cat_list = [
 ]
 
 
-
 cat_naming_new = [
     {
-        'name' : 'All Entities',
-        'cat' : 16,
-        'index' : 0,
+        'name': 'All Entities',
+        'cat': 16,
+        'index': 0,
         'catnames': reverse_cat_list,
     },
     {
-        'name' : 'Aggressive - Non Aggressive',
-        'cat' : 2,
-        'index' : 1,
+        'name': 'Aggressive - Non Aggressive',
+        'cat': 2,
+        'index': 1,
         'catnames': [
             'Non Aggressive',
             'Aggresive'
         ],
     },
     {
-        'name' : 'Benigne - Local Aggressive - Maligne',
-        'cat' : 3,
-        'index' : 2,
-        'catnames' : [
+        'name': 'Benigne - Local Aggressive - Maligne',
+        'cat': 3,
+        'index': 2,
+        'catnames': [
             'Benigne',
             'Local Aggressive',
             'Maligne'
         ]
     },
     {
-        'name' : 'Grade of clinical workflow',
-        'cat' : 4,
-        'index' : 3,
-        'catnames' : [
+        'name': 'Grade of clinical workflow',
+        'cat': 4,
+        'index': 3,
+        'catnames': [
             '0',
             '1',
             '2',
@@ -271,29 +278,29 @@ cat_naming_new = [
         ]
     },
     {
-        'name' : 'Grade for clinical workflow (2 + 3 = 2 > assessment in MSK center needed)',
-        'cat' : 3,
-        'index' : 4,
-        'catnames' : [
+        'name': 'Grade for clinical workflow (2 + 3 = 2 > assessment in MSK center needed)',
+        'cat': 3,
+        'index': 4,
+        'catnames': [
             '0',
             '1',
             '2 + 3',
         ]
     },
     {
-        'name' : 'malignant',
-        'cat' : 2,
-        'index' : 5,
-        'catnames' : [
+        'name': 'malignant',
+        'cat': 2,
+        'index': 5,
+        'catnames': [
             'Benign',
             'Malign'
         ]
     },
     {
-        'name' : 'Super Entity (chon: 0, osteo:1, meta:2, other:3)',
-        'cat' : 4,
-        'index' : 6,
-        'catnames' : [
+        'name': 'Super Entity (chon: 0, osteo:1, meta:2, other:3)',
+        'cat': 4,
+        'index': 6,
+        'catnames': [
             'chondrogenic tumor',
             'osteogenic tumor',
             'meta /haema',
@@ -312,4 +319,3 @@ benign_int = [
 ]
 
 # %%
-

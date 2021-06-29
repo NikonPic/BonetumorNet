@@ -1,11 +1,19 @@
 
 # %%
+#
+#  utils_tumor.py
+#  BonetumorNet
+#
+#  Created by Nikolas Wilhelm on 2020-08-01.
+#  Copyright © 2020 Nikolas Wilhelm. All rights reserved.
+#
+
 # general
 import os
 import json
 from datetime import datetime, date
 from itertools import groupby
-from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
+from src.categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -661,7 +669,8 @@ def get_data_fr_paths(mode=False):
     if mode:
         data_frame = pd.read_excel(paths_loc["csv"])
     else:
-        data_frame = pd.read_csv(paths_loc["csv"], header='infer', delimiter=';')
+        data_frame = pd.read_csv(
+            paths_loc["csv"], header='infer', delimiter=';')
 
     return data_frame, paths_loc
 

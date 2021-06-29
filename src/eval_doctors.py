@@ -1,4 +1,11 @@
 # %%
+#
+#  eval_doctors.py
+#  BonetumorNet
+#
+#  Created by Nikolas Wilhelm on 2020-11-10.
+#  Copyright © 2020 Nikolas Wilhelm. All rights reserved.
+#
 import os
 import pandas as pd
 from categories import cat_mapping_new, reverse_cat_list, malign_int, benign_int
