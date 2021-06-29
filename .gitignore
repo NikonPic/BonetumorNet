@@ -1,2 +1,11 @@
 .ipynb_checkpoints
 __pycache__
+PNG
+PNG_external
+CROP
+MASK
+SEG
+SEG_external
+datainfo.csv
+datainfo_external.xlsx
+*.json

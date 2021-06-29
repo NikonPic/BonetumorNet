@@ -13,18 +13,12 @@ import os
 import json
 from datetime import datetime, date
 from itertools import groupby
-from src.categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
+from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 import nrrd
-
-# deep learning
-# using the fastai vision library
-from fastai.vision import ImageBBox, open_image, itertools
-from fastai.metrics import roc_curve
-from sklearn.metrics import accuracy_score, auc
+import itertools
 
 # open images
 from PIL import Image, ImageFile
@@ -222,81 +216,7 @@ def print_info(loc_ages, labels, female_male, active_idx, tumor_kind, position, 
     dset_part = round(100 * len(active_idx) / len(loc_ages), nums)
     print(f'Dataset Nums: {len(active_idx)} ({dset_part}%)\n\n')
 
-# %% Interpret the results
-
-
-def get_acc(interp):
-    """
-    get the accuracy of the current interp set, using scipy
-    """
-    return accuracy_score(interp.y_true, interp.pred_class)
-
-
-def plot_roc_curve(interp, indx=1, line_w=2, off=0.02):
-    """
-    draw the roc curve
-    """
-    x_pos, y_pos = roc_curve(interp.preds[:, indx], interp.y_true)
-    auc_v = auc(x_pos, y_pos)
-    plt.figure("roc-curve", figsize=(8, 8))
-    plt.plot(x_pos, y_pos, color='darkorange',
-             label='ROC curve (area = %0.2f)' % auc_v)
-    plt.grid(0.25)
-    plt.plot([0, 1], [0, 1], color='navy', lw=line_w, linestyle='--')
-    plt.xlim([0.0-off, 1.0])
-    plt.ylim([0.0, 1.0 + off])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver operating characteristic')
-    plt.legend(loc="lower right")
-
-# %% Segmentation: Create the bounding boxes
-
-
-def add_bb_2_csv(csv_path, seg_path, pic_path, fac=1, mode=False):
-    """
-    construct the bounding boxes and add them to the csv file
-    """
-    # open csv
-    if mode:
-        data_frame = pd.read_excel(csv_path)
-    else:
-        data_frame = pd.read_csv(csv_path, header='infer', delimiter=';')
-
-    len_data_frame = len(data_frame)
-
-    # predefine arrays
-    top, left, bottom, right = np.empty([len_data_frame]), np.empty(
-        [len_data_frame]), np.empty([len_data_frame]), np.empty([len_data_frame])
-
-    # iterate trough the files:
-    for i, (file, _) in tqdm(enumerate(zip(data_frame[F_KEY], data_frame[CLASS_KEY]))):
-
-        # paths:
-        imfile = os.path.join(pic_path, f'{file}.png')
-        segname = format_seg_names(file)
-        segfile = os.path.join(seg_path, f'{segname}.seg.nrrd')
-
-        try:
-            # get the bounding box
-            top[i], left[i], bottom[i], right[i] = nrrd_2_bbox(
-                segfile, imfile, fac)
-        except FileNotFoundError:
-            print(segfile)
-
-    # add the bounding boxes to the dataframe
-    data_frame['top'] = top
-    data_frame['left'] = left
-    data_frame['bottom'] = bottom
-    data_frame['right'] = right
-
-    # save to csv!
-    if mode:
-        data_frame.to_excel(csv_path)
-    else:
-        data_frame.to_csv(csv_path, sep=';', index=False)
-
-    return data_frame
+# %% Preparation: Create the coco format
 
 
 def add_classes_to_csv(csv_path, mode=False):
@@ -348,46 +268,6 @@ def add_classes_to_csv(csv_path, mode=False):
         data_fr_loc.to_csv(csv_path, sep=';', index=False)
 
     return data_fr_loc
-
-
-def nrrd_2_bbox(nrrd_path, im_path,
-                fac, show=False,
-                nrrd_key='Segmentation_ReferenceImageExtentOffset'):
-    """
-    generate a boundingbox from the nrrd file
-    """
-    title = 'tumor'
-    # 1. open nrrd image:
-    readdata, header = nrrd.read(nrrd_path)
-    nrrd_img = np.transpose(readdata[:, :, 0] * 255)
-    nrrd_shape = nrrd_img.shape
-    height, width = nrrd_shape[0], nrrd_shape[1]
-
-    # 2. open img
-    img = open_image(im_path)
-
-    # 3. get the offsets from the nrrd file
-    offset = header[nrrd_key].split()
-    offset = [int(off) for off in offset]
-    offset = offset[0:2]
-
-    # define the factored lenghts
-    diff_width = (width * (fac-1)) / 2
-    diff_height = (height * (fac-1)) / 2
-
-    # define the bounding box sizes
-    top = offset[1] - diff_height
-    left = offset[0] - diff_width
-    bottom = offset[1] + height + diff_height
-    right = offset[0] + width + diff_width
-
-    if show:
-        bbox = ImageBBox.create(
-            *img.size, [[top, left, bottom, right]], labels=[0], classes=[title])
-        img.show(y=bbox, figsize=(14, 14))
-
-    # return the bounding box:
-    return int(top), int(left), int(bottom), int(right)
 
 
 def nrrd_2_mask(nrrd_path, im_path, nrrd_key='Segmentation_ReferenceImageExtentOffset', fac=20, as_array=False):
@@ -482,7 +362,7 @@ def make_empty_coco(mode='train', simple=True):
     return coco, cat_mapping
 
 
-def get_cocos_from_data_fr(data_fr, paths, save=True, seg=True, simple=True, newmode=0, ex_mode=False):
+def get_cocos_from_data_fr(data_fr, paths, save=True, simple=True, newmode=0, ex_mode=False):
     """
     build the coco dictionaries from the dataframe
     """
@@ -497,7 +377,7 @@ def get_cocos_from_data_fr(data_fr, paths, save=True, seg=True, simple=True, new
         indices = dis[mode]['idx']
 
         # make empty coco_dict
-        cocos_loc.append(make_coco(data_fr, mode, indices, seg=seg, newmode=newmode,
+        cocos_loc.append(make_coco(data_fr, mode, indices, newmode=newmode,
                                    simple=simple, path=paths["pic"], path_nrd=paths["seg"]))
 
         if save:
@@ -512,8 +392,37 @@ def get_cocos_from_data_fr(data_fr, paths, save=True, seg=True, simple=True, new
     return cocos_loc
 
 
-def make_coco(data_frame, mode, idxs,
-              seg=False, path='../PNG2', path_nrd='../SEG', simple=True, newmode=0):
+def bbox_from_segm(segm):
+    """create bounding box"""
+    seg = segm[0]
+    x_arr = seg[0::2]
+    y_arr = seg[1::2]
+
+    top = min(y_arr)
+    left = min(x_arr)
+    bottom = max(y_arr)
+    right = max(x_arr)
+    return tlbr2bbox(top, left, bottom, right)
+
+
+def check_seg(segl):
+    """check the segmentation format -> take the largest segmentation"""
+    checked = segl.copy()
+
+    # take the longest if we have multiple polygons ..?
+    if len(segl) > 1:
+        maxlen = 0
+        for loc_seg in segl:
+            if len(loc_seg) > maxlen:
+                maxlen = len(loc_seg)
+                checked = [loc_seg]
+
+    return checked
+
+
+def make_coco(data_frame, mode, idxs, path='../PNG2', path_nrd='../SEG', simple=True, newmode=0):
+    """fill the coco with the annotations"""
+
     # create the empty coco format
     coco, cat_mapping = make_empty_coco(mode, simple=simple)
 
@@ -534,17 +443,6 @@ def make_coco(data_frame, mode, idxs,
 
         # get the image id -> idx should be unique
         id_tumor = int(idx)
-
-        # get the bounding box
-        bbox = tlbr2bbox(obj['top'], obj['left'], obj['bottom'], obj['right'])
-
-        # create the simple poly:
-        poly = [
-            (obj['left'], obj['top']), (obj['right'], obj['top']),
-            (obj['right'], obj['bottom']), (obj['left'], obj['bottom']),
-        ]
-        poly = list(itertools.chain.from_iterable(poly))
-        poly = [int(p) for p in poly]
 
         # get the class:
         name = obj[CLASS_KEY] if simple else obj[ENTITY_KEY]
@@ -569,20 +467,20 @@ def make_coco(data_frame, mode, idxs,
             "category_id": cat,
             "iscrowd": 0,
             "area": int(height * width),
-            "bbox": bbox,
-            "segmentation": [poly],
         }
 
-        # get the segmentation if required
-        if seg:
-            segname = format_seg_names(file)
-            # get the rle - mask
-            nrrdpath = os.path.join(path_nrd, segname + '.seg.nrrd')
-            mask = nrrd_2_mask(nrrdpath, filepath, as_array=True)
-            polygons = Mask(mask).polygons()
+        # get the segmentation
+        segname = format_seg_names(file)
 
-            ann_dict["area"] = int(np.sum(mask > 0))
-            ann_dict["segmentation"] = check_seg(polygons.segmentation)
+        # get the rle - mask
+        nrrdpath = os.path.join(path_nrd, segname + '.seg.nrrd')
+        mask = nrrd_2_mask(nrrdpath, filepath, as_array=True)
+        polygons = Mask(mask).polygons()
+
+        ann_dict["area"] = int(np.sum(mask > 0))
+        segm = check_seg(polygons.segmentation)
+        ann_dict["segmentation"] = segm
+        ann_dict['bbox'] = bbox_from_segm(segm)
 
         # append the dictionaries to the coco bunch
         coco['images'].append(img_dict)
@@ -601,7 +499,7 @@ def check_seg(segl):
         for loc_seg in segl:
             if len(loc_seg) > maxlen:
                 maxlen = len(loc_seg)
-                checked = loc_seg
+                checked = [loc_seg]
 
     return checked
 
@@ -643,8 +541,7 @@ def get_data_fr_paths(mode=False):
     add = "../" if path[-3:] == "src" else ""
 
     name = 'datainfo'
-    pic_folder = 'PNG2'
-    crop_folder = 'CROP'
+    pic_folder = 'PNG'
     seg_folder = 'SEG'
     mask_folder = 'MASK'
 
@@ -660,7 +557,6 @@ def get_data_fr_paths(mode=False):
         "csv": os.path.join(path, f'{add}{name}'),
         "pic": os.path.join(path, f'{add}{pic_folder}'),
         "seg": os.path.join(path, f'{add}{seg_folder}'),
-        "crop": os.path.join(path, f'{add}{crop_folder}'),
         "mask": os.path.join(path, f'{add}{mask_folder}'),
         "nrrd": os.path.join(path, f'{add}/radiomics/image')
     }
@@ -705,19 +601,14 @@ if __name__ == '__main__':
         print('\n\nDataset information:\n')
         ages = get_data_fr_dis(data_fr, mode=external_mode)
 
-        # %% generate the cropped pictures in the crop folder
-        print('\n\nAdd the bounding box to the csv:')
-        add_bb_2_csv(paths["csv"], paths["seg"],
-                     paths["pic"], fac=1.0, mode=external_mode)
-
         # %% add the detailed classes to the dataframe
         print('\n\nAdd the detailed classes to the csv')
         add_classes_to_csv(paths["csv"], mode=external_mode)
 
         # %% build the coco-formated json
         print('\n\nTransform to coco format')
-        cocos = get_cocos_from_data_fr(data_fr, paths, save=True,
-                                       seg=True, simple=SIMPLE, newmode=0, ex_mode=external_mode)
+        cocos = get_cocos_from_data_fr(
+            data_fr, paths, save=True, simple=SIMPLE, newmode=0, ex_mode=external_mode)
 
 
 # %%
