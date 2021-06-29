@@ -16,9 +16,10 @@ from itertools import groupby
 from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 import pandas as pd
 import numpy as np
+import itertools
 from tqdm import tqdm
 import nrrd
-import itertools
+
 
 # open images
 from PIL import Image, ImageFile
@@ -270,7 +271,8 @@ def add_classes_to_csv(csv_path, mode=False):
     return data_fr_loc
 
 
-def nrrd_2_mask(nrrd_path, im_path, nrrd_key='Segmentation_ReferenceImageExtentOffset', fac=20, as_array=False):
+def nrrd_2_mask(nrrd_path, im_path, nrrd_key='Segmentation_ReferenceImageExtentOffset',
+                fac=20, as_array=False):
     """
     generate mask from the nrrd file
     """
@@ -362,12 +364,12 @@ def make_empty_coco(mode='train', simple=True):
     return coco, cat_mapping
 
 
-def get_cocos_from_data_fr(data_fr, paths, save=True, simple=True, newmode=0, ex_mode=False):
+def get_cocos_from_data_fr(data_fr_loc, paths_loc, save=True, simple=True, newmode=0, ex_mode=False):
     """
     build the coco dictionaries from the dataframe
     """
     # get the shuffled indexes
-    dis = get_advanced_dis_data_fr(data_fr, mode=ex_mode)
+    dis = get_advanced_dis_data_fr(data_fr_loc, mode=ex_mode)
 
     # the list of coco dictionaries
     cocos_loc = []
@@ -377,8 +379,8 @@ def get_cocos_from_data_fr(data_fr, paths, save=True, simple=True, newmode=0, ex
         indices = dis[mode]['idx']
 
         # make empty coco_dict
-        cocos_loc.append(make_coco(data_fr, mode, indices, newmode=newmode,
-                                   simple=simple, path=paths["pic"], path_nrd=paths["seg"]))
+        cocos_loc.append(make_coco(data_fr_loc, mode, indices, newmode=newmode,
+                                   simple=simple, path=paths_loc["pic"], path_nrd=paths_loc["seg"]))
 
         if save:
             local_path = os.getcwd()
@@ -403,6 +405,20 @@ def bbox_from_segm(segm):
     bottom = max(y_arr)
     right = max(x_arr)
     return tlbr2bbox(top, left, bottom, right)
+
+
+def tlbr2bbox(top, left, bottom, right, oper=int):
+    """
+    tlbr = [top, left, bottom, right]
+    to ->
+    bbox = [x(left), y(top), width, height]
+    """
+    x_pos = oper(left)
+    y_pos = oper(top)
+    width = oper(right - left)
+    height = oper(bottom - top)
+
+    return [x_pos, y_pos, width, height]
 
 
 def check_seg(segl):
@@ -487,35 +503,6 @@ def make_coco(data_frame, mode, idxs, path='../PNG2', path_nrd='../SEG', simple=
         coco['annotations'].append(ann_dict)
 
     return coco
-
-
-def check_seg(segl):
-    """check the segmentation format"""
-    checked = segl.copy()
-
-    # take the longest if we have multiple polygons ..?
-    if len(segl) > 1:
-        maxlen = 0
-        for loc_seg in segl:
-            if len(loc_seg) > maxlen:
-                maxlen = len(loc_seg)
-                checked = [loc_seg]
-
-    return checked
-
-
-def tlbr2bbox(top, left, bottom, right, oper=int):
-    """
-    tlbr = [top, left, bottom, right]
-    to ->
-    bbox = [x(left), y(top), width, height]
-    """
-    x_pos = oper(left)
-    y_pos = oper(top)
-    width = oper(right - left)
-    height = oper(bottom - top)
-
-    return [x_pos, y_pos, width, height]
 
 
 def binary_mask_to_rle(binary_mask):

@@ -33,18 +33,14 @@ from fvcore.common.file_io import PathManager
 from fvcore.transforms.transform import Transform
 
 # detectron specific
-import detectron2
 from detectron2.data import build_detection_train_loader
 from detectron2.data import transforms as T
 from detectron2.data import detection_utils as utils
 from detectron2.engine import DefaultTrainer
 from detectron2.evaluation.evaluator import DatasetEvaluator
 from detectron2.evaluation import COCOEvaluator
+from detectron2.data.transforms.augmentation import TransformGen
 
-if int(detectron2.__version__.split('.')[1]) > 1:
-    from detectron2.data.transforms.augmentation import TransformGen
-else:
-    from detectron2.data.transforms.transform_gen import TransformGen
 
 # personal functionality
 from utils_tumor import get_advanced_dis_data_fr, CLASS_KEY, ENTITY_KEY, F_KEY
