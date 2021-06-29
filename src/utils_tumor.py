@@ -13,19 +13,22 @@ import os
 import json
 from datetime import datetime, date
 from itertools import groupby
-from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 import pandas as pd
 import numpy as np
 import itertools
 from tqdm import tqdm
 import nrrd
-
-
 # open images
 from PIL import Image, ImageFile
 
 # generate polygons:
 from imantics import Mask
+
+if __name__ == '__main__':
+    from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
+else:
+    from src.categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
+
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 

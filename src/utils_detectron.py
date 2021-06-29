@@ -16,7 +16,7 @@ import math
 import random
 import logging
 
-from categories import cat_mapping_new, malign_int, benign_int, make_cat_advanced
+
 from tqdm.notebook import tqdm
 import cv2
 import numpy as np
@@ -43,7 +43,12 @@ from detectron2.data.transforms.augmentation import TransformGen
 
 
 # personal functionality
-from utils_tumor import get_advanced_dis_data_fr, CLASS_KEY, ENTITY_KEY, F_KEY
+if __name__ == '__main__':
+    from categories import cat_mapping_new, malign_int, benign_int, make_cat_advanced
+    from utils_tumor import get_advanced_dis_data_fr, CLASS_KEY, ENTITY_KEY, F_KEY
+else:
+    from src.categories import cat_mapping_new, malign_int, benign_int, make_cat_advanced
+    from src.utils_tumor import get_advanced_dis_data_fr, CLASS_KEY, ENTITY_KEY, F_KEY
 
 
 class MyEvaluator(DatasetEvaluator):
@@ -792,3 +797,6 @@ def personal_score_simple(predictor, data_fr, active_idx, imgpath="./PNG"):
     res = count / len(active_idx)
 
     return res
+
+
+# %%
