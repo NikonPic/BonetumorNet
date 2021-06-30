@@ -24,7 +24,8 @@ from PIL import Image, ImageFile
 # generate polygons:
 from imantics import Mask
 
-if __name__ == '__main__':
+# import personal functions
+if __name__ == '__main__':++
     from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 else:
     from src.categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int

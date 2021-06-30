@@ -6,6 +6,7 @@ CROP
 MASK
 SEG
 SEG_external
+models
 datainfo.csv
 datainfo_external.xlsx
 *.json
