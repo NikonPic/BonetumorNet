@@ -20,6 +20,8 @@ IMGDIR = '../PNG'
 IMGKEY = 'images'
 IMGFKEY = 'file_name'
 
+EXT_DIR = '../EXT'
+
 ANNKEY = 'annotations'
 ANNSEGKEY = 'segmentation'
 
@@ -64,14 +66,42 @@ def visualize_mask(imgdata, imgdata2, annodata, annodata2):
     return result
 
 
-def calc_interset(annodata, annodata2):
+def calc_iou(annodata, annodata2):
+    """get the intersection over union between the two polygons"""
     poly = anno_2_poly(annodata)
+    area = poly.area
+
     poly2 = anno_2_poly(annodata2)
-    inter = poly.intersects(poly2)
-    return inter
+    area2 = poly2.area
+
+    poly_inter = poly.intersection(poly2)
+    inter_area = poly_inter.area
+
+    iou = inter_area / (area + area2)
+
+    return iou
+
+
+def check_iou_lim(annodata, annodata2, lim=0.05):
+    """only include annotations, if th iou is lower than {lim}"""
+    iou = calc_iou(annodata, annodata2)
+    if (lim >= iou):
+        return True
+    return False
+
+
+def check_poly_lim(poly, img):
+    """check if the polygon is within the image range"""
+    x_max = max(poly[0::2])
+    y_max = max(poly[1::2])
+    img_x_max, img_y_max = img.size
+    if (img_x_max >= x_max) and (img_y_max >= y_max):
+        return True
+    return False
 
 
 def anno_2_poly(annodata):
+    """transform the annotation to polygon format"""
     poly = annodata[ANNSEGKEY][0]
     x_arr = poly[0::2]
     y_arr = poly[1::2]
@@ -88,18 +118,19 @@ def update(idx):
     annodata2 = get_anno(imgdata2, data)
 
     img = visualize_mask(imgdata, imgdata2, annodata, annodata2)
-    
-    print(calc_interset(annodata, annodata2))
-    
+
+    inter = calc_iou(annodata, annodata2)
+
     img.show()
 
 
+# %%
+if __name__ == '__main__':
+    idx = widgets.IntSlider(0, 0, 50)
+    widgets.interactive(update, idx=idx)
+# %%
 idx = widgets.IntSlider(0, 0, 50)
 widgets.interactive(update, idx=idx)
 # %%
-visualize_anno(imgdata, annodata)
-# %%
-visualize_anno(imgdata2, annodata2)
-# %%
-visualize_mask(imgdata2, imgdata, annodata2)
+
 # %%

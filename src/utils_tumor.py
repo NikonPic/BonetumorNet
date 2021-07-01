@@ -25,7 +25,7 @@ from PIL import Image, ImageFile
 from imantics import Mask
 
 # import personal functions
-if __name__ == '__main__':++
+if __name__ == '__main__':
     from categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
 else:
     from src.categories import make_cat_advanced, cat_mapping_new, reverse_cat_list, malign_int
