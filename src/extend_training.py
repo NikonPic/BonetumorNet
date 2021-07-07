@@ -165,7 +165,7 @@ def include_multiple_imgs(idx, gen_round=1, maxlen=650, max_append=60, highlight
     annodata_org = get_anno(imgdata_org, data)
     img_paste = Image.open(f'{IMGDIR}/{imgdata_org[IMGFKEY]}')
     id_org = annodata_org[ANNIDKEY]
-    new_id = id_org + gen_round * maxlen + 1
+    new_id = id_org + gen_round * maxlen + 1000
     img_arr = np.asarray(img_paste)
 
     # get a random number of annotations to add to the img
@@ -242,8 +242,8 @@ def include_multiple_imgs(idx, gen_round=1, maxlen=650, max_append=60, highlight
             img_paste = Image.composite(img_copy, img_paste, mask_blur)
 
             # change the annotation ids
-            loc_annodata[ANNIDKEY] = new_id
-            loc_annodata[ANNIMGIDKEY] = new_id * 100000 + include_count
+            loc_annodata[ANNIDKEY] = new_id * 100000 + include_count
+            loc_annodata[ANNIMGIDKEY] = new_id
 
             annos_on_img.append(loc_annodata)
 
@@ -286,7 +286,7 @@ def extend_training_data(original_path='PNG', max_append=60, gen_round=1):
     # perform the annotation process multiple times per image?
     for _ in range(1, gen_round+1):
         # now add new images
-        for index, imgdata in tqdm(enumerate(data[IMGKEY])):
+        for index, imgdata in tqdm(enumerate(data[IMGKEY][:10])):
 
             # genertae new image and annotations
             new_id, img, annos = include_multiple_imgs(
@@ -303,7 +303,7 @@ def extend_training_data(original_path='PNG', max_append=60, gen_round=1):
                 "file_name": filename,
                 "height": imgdata['height'],
                 "width": imgdata['width']
-            },
+            }
 
             # append the dataset by the new annotations
             data_extended[IMGKEY].append(img_data_new)
@@ -321,7 +321,8 @@ if __name__ == '__main__':
     idx = widgets.IntSlider(626, 0, 654)
 
     # %%
-    widgets.interactive(include_multiple_imgs, idx=idx)
+    widgets.interactive(include_multiple_imgs, idx=idx,
+                        hightlight=True, outline=True)
 
     # %%
     extend_training_data(max_append=120, gen_round=1)
