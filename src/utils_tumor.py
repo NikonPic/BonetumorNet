@@ -15,7 +15,6 @@ from datetime import datetime, date
 from itertools import groupby
 import pandas as pd
 import numpy as np
-import itertools
 from tqdm import tqdm
 import nrrd
 # open images
