@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 import os
+import shutil
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -31,6 +32,7 @@ EXT_DIR = 'EXT'
 
 ANNKEY = 'annotations'
 ANNSEGKEY = 'segmentation'
+ANNIMGIDKEY = 'image_id'
 ANNIDKEY = 'id'
 
 TRAIN_JSON = '../train.json'
@@ -188,6 +190,9 @@ def include_multiple_imgs(idx, gen_round=1, maxlen=650, max_append=60, highlight
     # only if the new annotation doesnt collide with all previous annotations!
     annos_on_img = [annodata_org]
     annos_on_img[0][ANNIDKEY] = new_id
+    annos_on_img[0][ANNIMGIDKEY] = new_id
+
+    include_count = 0
 
     if len(img_arr.shape) < 3:
         print(f'Name: {imgdata_org[IMGFKEY]}')
@@ -223,6 +228,7 @@ def include_multiple_imgs(idx, gen_round=1, maxlen=650, max_append=60, highlight
 
         # finally add the polygon if include remains true:
         if include:
+            include_count += 1
             mask = Image.new("L", img_copy.size, 0)
             draw = ImageDraw.Draw(mask)
 
@@ -235,7 +241,10 @@ def include_multiple_imgs(idx, gen_round=1, maxlen=650, max_append=60, highlight
             # composite of images
             img_paste = Image.composite(img_copy, img_paste, mask_blur)
 
+            # change the annotation ids
             loc_annodata[ANNIDKEY] = new_id
+            loc_annodata[ANNIMGIDKEY] = new_id * 100000 + include_count
+
             annos_on_img.append(loc_annodata)
 
     if highlight:
@@ -257,7 +266,7 @@ def extend_training_data(original_path='PNG', max_append=60, gen_round=1):
 
     # manage paths
     if os.path.isdir(f'../{EXT_DIR}'):
-        os.rmdir(f'../{EXT_DIR}')
+        shutil.rmtree(f'../{EXT_DIR}')
     os.mkdir(f'../{EXT_DIR}')
 
     with open(TRAIN_JSON) as fp:
@@ -301,7 +310,7 @@ def extend_training_data(original_path='PNG', max_append=60, gen_round=1):
             data_extended[ANNKEY].extend(annos)
 
     # finally save the new dataset
-    save_file = f'../training_extended.json'
+    save_file = '../training_extended.json'
     print(f'Saving to: {save_file}')
     with open(save_file, 'w') as file_p:
         json.dump(data_extended, file_p, indent=2)
@@ -309,12 +318,12 @@ def extend_training_data(original_path='PNG', max_append=60, gen_round=1):
 
 # %%
 if __name__ == '__main__':
-    test = 1
-    # %%
     idx = widgets.IntSlider(626, 0, 654)
+
+    # %%
     widgets.interactive(include_multiple_imgs, idx=idx)
 
-# %%
-extend_training_data(gen_round=1)
+    # %%
+    extend_training_data(max_append=120, gen_round=1)
 
 # %%
