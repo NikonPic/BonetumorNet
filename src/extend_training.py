@@ -208,19 +208,27 @@ def include_multiple_imgs(idx, gen_round=1, maxlen=650, max_append=60, highlight
             continue
 
         include = True
+
+        # simple class balance
+        if loc_annodata['category_id'] == 0:
+            randint_class = np.random.randint(1, 10)
+            include = include if randint_class > 5 else False
+
         # get the local polygon
         loc_poly = loc_annodata[ANNSEGKEY][0]
         # only continue if the dimensions match
         if check_poly_lim(loc_poly, img_paste):
+            x, y = loc_annodata['bbox'][:2]
+            width, height = loc_annodata['bbox'][2:4]
+            mean_seg = np.mean(img_arr[y:y+height, x: x+width, :])
+            mean_img = np.mean(img_copy_arr[y:y+height, x: x+width, :])
+
+            include = include if (
+                0.8 * mean_img < mean_seg and 1.2*mean_img > mean_seg) else False
+            
             # compare polygon to all previous polygons
             for anno_on_img in annos_on_img:
-                x, y = loc_annodata['bbox'][:2]
-                width, height = loc_annodata['bbox'][2:4]
-                mean_seg = np.mean(img_arr[y:y+height, x: x+width, :])
-                mean_img = np.mean(img_copy_arr[y:y+height, x: x+width, :])
-
-                include = include if (
-                    0.8 * mean_img < mean_seg and 1.2*mean_img > mean_seg) else False
+                
                 include = include if check_iou_lim(
                     loc_annodata, anno_on_img) else False
         else:
@@ -286,7 +294,7 @@ def extend_training_data(original_path='PNG', max_append=60, gen_round=1):
     # perform the annotation process multiple times per image?
     for _ in range(1, gen_round+1):
         # now add new images
-        for index, imgdata in tqdm(enumerate(data[IMGKEY][:10])):
+        for index, imgdata in tqdm(enumerate(data[IMGKEY])):
 
             # genertae new image and annotations
             new_id, img, annos = include_multiple_imgs(
@@ -325,6 +333,6 @@ if __name__ == '__main__':
                         hightlight=True, outline=True)
 
     # %%
-    extend_training_data(max_append=120, gen_round=1)
+    extend_training_data(max_append=200, gen_round=1)
 
 # %%

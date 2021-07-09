@@ -279,7 +279,7 @@ def get_cla_map(simple, entity, true_int, cat_mapping, malignant):
     return cla
 
 
-def personal_score(predictor, data_fr, mode="test", simple=True, imgpath="./PNG2", external=False):
+def personal_score(predictor, data_fr, mode="test", simple=True, imgpath="./PNG", external=False):
     """define the accuracy"""
     # get the dataset distribution
     active_idx = get_active_idx(data_fr, mode, external=external)
