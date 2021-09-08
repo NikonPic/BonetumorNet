@@ -35,20 +35,15 @@
 If you use this project in any of your work, please cite:
 
 ```
-@article{doi:10.1148/radiol.2021204531,
-  author   = {von Schacky, Claudio E. and Wilhelm, Nikolas J. and Schäfer, Valerie S. and Leonhardt, Yannik and Gassert, Felix G. and Foreman, Sarah C. and Gassert, Florian T. and Jung, Matthias and Jungmann, Pia M. and Russe, Maximilian F. and Mogler, Carolin and Knebel, Carolin and von Eisenhart-Rothe, Rüdiger and Makowski, Marcus R. and Woertler, Klaus and Burgkart, Rainer and Gersing, Alexandra S.},
-  title    = {Multitask Deep Learning for Segmentation and Classification of Primary Bone Tumors on Radiographs},
-  journal  = {Radiology},
-  volume   = {0},
-  number   = {0},
-  pages    = {204531},
-  year     = {2021},
-  doi      = {10.1148/radiol.2021204531},
-  url      = { 
-        https://doi.org/10.1148/radiol.2021204531
-},
-  eprint   = { 
-        https://doi.org/10.1148/radiol.2021204531
-},
+@article{vonSchacky2021,
+  doi = {10.1148/radiol.2021204531},
+  url = {https://doi.org/10.1148/radiol.2021204531},
+  year = {2021},
+  month = sep,
+  publisher = {Radiological Society of North America ({RSNA})},
+  pages = {204531},
+  author = {Claudio E. von Schacky and Nikolas J. Wilhelm and Valerie S. Sch\"{a}fer and Yannik Leonhardt and Felix G. Gassert and Sarah C. Foreman and Florian T. Gassert and Matthias Jung and Pia M. Jungmann and Maximilian F. Russe and Carolin Mogler and Carolin Knebel and R\"{u}diger von Eisenhart-Rothe and Marcus R. Makowski and Klaus Woertler and Rainer Burgkart and Alexandra S. Gersing},
+  title = {Multitask Deep Learning for Segmentation and Classification of                     Primary Bone Tumors on Radiographs},
+  journal = {Radiology}
 }
 ```
