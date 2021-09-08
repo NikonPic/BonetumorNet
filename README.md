@@ -43,7 +43,7 @@ If you use this project in any of your work, please cite:
   publisher = {Radiological Society of North America ({RSNA})},
   pages = {204531},
   author = {Claudio E. von Schacky and Nikolas J. Wilhelm and Valerie S. Sch\"{a}fer and Yannik Leonhardt and Felix G. Gassert and Sarah C. Foreman and Florian T. Gassert and Matthias Jung and Pia M. Jungmann and Maximilian F. Russe and Carolin Mogler and Carolin Knebel and R\"{u}diger von Eisenhart-Rothe and Marcus R. Makowski and Klaus Woertler and Rainer Burgkart and Alexandra S. Gersing},
-  title = {Multitask Deep Learning for Segmentation and Classification of                     Primary Bone Tumors on Radiographs},
+  title = {Multitask Deep Learning for Segmentation and Classification of Primary Bone Tumors on Radiographs},
   journal = {Radiology}
 }
 ```
