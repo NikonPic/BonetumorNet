@@ -1,7 +1,7 @@
 # BonetumorNet
 >Multitask Deep Learning for Segmentation and Classification of Primary Bone Tumors on Radiographs -> developed by Nikolas Wilhelm.
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/NikonPic/bonetumorseg/master?urlpath=voila%2Frender%2F01_segmenter.ipynb) <img src="https://www.code-inspector.com/project/17089/status/svg?branch=master&kill_cache=1" /> <img src="https://www.code-inspector.com/project/17089/score/svg?branch=master&kill_cache=1" />
+
 
 
  <img src="results\demo.gif" alt="Drawing" style="width: 500px;">
